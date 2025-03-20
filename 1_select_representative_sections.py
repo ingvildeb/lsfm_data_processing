@@ -4,6 +4,7 @@ from glob import glob
 from PIL import Image
 import matplotlib.pyplot as plt
 import shutil
+from utils import get_avg_pixel_value
 
 base_path = r"Z:\Labmembers\Ingvild\Testing_CellPose\test_data\\"
 file_path = rf"{base_path}Ex_488_Ch0_stitched\\"
@@ -12,20 +13,12 @@ files = glob(f"{file_path}*.tif")
 intensity_threshold = 5
 sample_size = 10
 
-def process_image(file):
-    # Load image and convert to array
-    image = Image.open(file)
-    pixels = np.array(image)
-    # Calculate the average pixel value
-    average_pixel_value = np.mean(image)
-    return average_pixel_value
-
 # Process and select images that are likely to be within the brain
 
 selected_images = []
 
 for file in files:
-    pixel_value = process_image(file)
+    pixel_value = get_avg_pixel_value(file)
     if pixel_value > intensity_threshold:
         selected_images.append(file)
 
