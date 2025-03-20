@@ -5,8 +5,9 @@ from PIL import Image
 import numpy as np
 import cv2
 
-# Load the NIfTI file
+# Enter paths
 base_path = r"Z:\Labmembers\Ingvild\Testing_CellPose\test_data\\"
+out_path = r"Z:\Labmembers\Ingvild\Testing_CellPose\test_data\Ex_488_Ch0_stitched_selected_data\\"
 
 all_images_path = glob(f"{base_path}Ex_488_Ch0_stitched\\*.tif")
 no_images = len(all_images_path)
@@ -53,6 +54,6 @@ for image in subset_images:
 
     # save the atlas slice as a 16 bit tiff image
     resized_horizontal_slice_16bit = resized_horizontal_slice.astype(np.uint16)
-    cv2.imwrite(f'{name.split(".")[0]}_atlas_slice.tiff', resized_horizontal_slice_16bit)
+    cv2.imwrite(rf'{out_path}{name.split(".")[0]}_atlas_slice.tif', resized_horizontal_slice_16bit)
 
     print("Image has been saved successfully.")
