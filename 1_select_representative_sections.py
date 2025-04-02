@@ -1,74 +1,66 @@
 import pandas as pd
 import numpy as np
-from glob import glob
-from PIL import Image
-import matplotlib.pyplot as plt
 import shutil
-from utils import get_avg_pixel_value
+from pathlib import Path
 
-base_path = r"Z:\Labmembers\Ingvild\Testing_CellPose\test_data\\"
-file_path = rf"{base_path}Ex_488_Ch0_stitched\\"
-files = glob(f"{file_path}*.tif")
+##################
+# USER PARAMETERS
 
-intensity_threshold = 5
-sample_size = 10
+## Specify the paths (any number of paths) to LSFM data 
+folder_paths = [Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_20\20250320_17_02_13_NB_CS0290_M_P533_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\\"),
+                Path("M:\SmartSPIM_Data\2025\2025_03\2025_03_25\20250325_14_16_38_NB_CS0295_F_P417_Tg_SwDI_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\\"),
+                Path("M:\SmartSPIM_Data\2025\2025_03\2025_03_27\20250327_19_07_55_NB_CS0302_F_P428_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\\"),
+                ]
 
-# Process and select images that are likely to be within the brain
+## Specify the channel to select images from and the sample size (number of selected images per sample)
+channel = 1
+sample_size = 5
 
-selected_images = []
+## Specify where you want your selected images to be saved
+out_path = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\training_with_MIPs\selected_sections\\")
+out_path.mkdir(exist_ok=True)
 
-for file in files:
-    pixel_value = get_avg_pixel_value(file)
-    if pixel_value > intensity_threshold:
-        selected_images.append(file)
+##################
 
-# Visual check that the first and last images of the selection are within the brain. If not, increase the pixel threshold.
+# Adding 2 to sample size so first and last (likely black) images can be removed after sampling
+sample_size = sample_size + 2
 
-first_sample = Image.open(selected_images[0])
-last_sample = Image.open(selected_images[-1])
+for path in folder_paths:
+    folder_name = path.name
+    sample_id, sample_age, sample_geno = folder_name.split("_")[5], folder_name.split("_")[7], folder_name.split("_")[8]
 
-plt.imshow(first_sample)
-plt.axis('off')  # Turn off axis
-plt.show()
+    channel_wavelengths = {0: "488", 1: "561", 2: "640"}
+    file_path = path / f"Ex_{channel_wavelengths.get(channel)}_Ch{channel}_stitched"
 
-plt.imshow(last_sample)
-plt.axis('off')  # Turn off axis
-plt.show()
+    # Using pathlib to glob files
+    files = sorted(file_path.glob("*.tif"))
 
-# If visual check complete, move on to sample a representative subset of the images
+    # Ensure at least sample_size items exist in selected_images
+    if len(files) < sample_size:
+        print("Not enough images to sample.")
+        regularly_spaced_samples = files
+    else:
+        # Calculate the step size using integer indices correctly
+        step = len(files) // (sample_size - 1) if sample_size > 1 else len(files)
 
-# Ensure at least sample_size items exist in selected_images
-if len(selected_images) < sample_size:
-    print("Not enough images above intensity threshold to sample.")
-    regularly_spaced_samples = selected_images
-else:
-    # Calculate the step size using integer indices correctly
-    step = len(selected_images) // (sample_size - 1) if sample_size > 1 else len(selected_images)
+        # Initialize selected samples empty to collect 5 samples
+        regularly_spaced_samples = []
 
-    # Initialize selected samples empty to collect 5 samples
-    regularly_spaced_samples = []
+        # Collect samples using computed step
+        for i in range(sample_size):
+            idx = min(i * step, len(files) - 1)  # Ensure indices are valid
+            regularly_spaced_samples.append(files[idx])
 
-    # Collect samples using computed step
-    for i in range(sample_size):
-        idx = min(i * step, len(selected_images) - 1)  # Ensure indices are valid
-        regularly_spaced_samples.append(selected_images[idx])
+    regularly_spaced_samples = sorted(regularly_spaced_samples)
 
+    del regularly_spaced_samples[0]
+    del regularly_spaced_samples[-1]
 
+    # Copy each file from selected_files to the new directory
+    for file in regularly_spaced_samples:
+        # Define the destination path for each file
+        destination_path = out_path / f"{sample_id}_{file.name}"
+        print(f"Copying {file} to {destination_path}")
+        shutil.copy2(str(file), str(destination_path))
 
-# Copy the sample subset to a new folder for further processing
-
-# Create new path by appending '_selected_data' to the original folder name
-full_folder = os.path.basename(os.path.normpath(file_path))  # Extract base directory name
-new_folder_path = f"{base_path}{full_folder}_selected_data"
-
-# Ensure the new directory exists, create if it does not
-os.makedirs(new_folder_path, exist_ok=True)
-
-# Copy each file from selected_files to the new directory
-for file_path in regularly_spaced_samples:
-    # Define the destination path for each file
-    destination_path = os.path.join(new_folder_path, os.path.basename(file_path))
-    print(f"Copying {file_path} to {destination_path}")
-    shutil.copy2(file_path, destination_path)
-
-print(f"All selected files have been copied to {new_folder_path}")
+    print(f"All selected files from {sample_id} have been copied to {destination_path}")
