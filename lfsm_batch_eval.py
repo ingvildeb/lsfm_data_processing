@@ -5,22 +5,17 @@ import numpy as np
 
 ### Edit list of path (input as many as you want, separated by commas)
 
-list_of_paths = [Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_20\20250320_17_02_13_NB_CS0290_M_P533_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_20\20250320_19_47_13_NB_CS0291_M_P533_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_24\20250324_11_36_15_IEB_CS293_M_P533_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_24\20250324_14_34_33_IEB_CS0292_M_P533_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_25\20250325_10_58_28_NB_CS0294_F_P417_Tg_SwDI_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_25\20250325_14_16_38_NB_CS0295_F_P417_Tg_SwDI_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_26\20250326_10_56_52_NB_CS0296_F_P415_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_26\20250326_14_19_35_NB_CS0300_F_P341_Tg_SwDI_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_27\20250327_15_50_47_NB_CS0301_F_P341_Tg_SwDI_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_27\20250327_19_07_55_NB_CS0302_F_P428_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_28\20250328_10_45_32_NB_CS0303_F_P428_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE")]
+list_of_paths = [Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_15\20250415_11_06_50_NB_NB058_F_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_200ul_RO_Destripe_DONE"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_15\20250415_13_49_05_NB_NB062_M_P120_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_200ul_RO_Destripe_DONE"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_17\20250417_15_51_44_NB_NB059_F_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_120ul_RO_Destripe_DONE"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_17\20250417_18_38_32_NB_NB060_M_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_100ul_RO_Destripe_DONE"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_23\20250423_16_45_50_NB_NB063_F_P134_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_200ul_RO_Destripe_DONE"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_23\20250423_20_00_46_NB_NB065_M_P120_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_150ul_RO_Destripe_DONE")
+                 ]
 
 # Set the out path and select which channel to make collage for
-out_path = Path(r"Z:\Labmembers\Ingvild\RM1\Protocol_testing\202503_LargeBatch_AgingCCFBrains")
+out_path = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202504_MediumBatch_ROsamples")
 channel = 2
-
 
 
 ##### Main code, do not edit
@@ -51,8 +46,8 @@ for path in list_of_paths:
     image_array = np.array(image_pil)
 
     # Define clipping thresholds
-    lower_threshold = np.percentile(image_array, 1)
-    upper_threshold = np.percentile(image_array, 99)
+    lower_threshold = np.percentile(image_array, 0)
+    upper_threshold = np.percentile(image_array, 99.8)
 
     # Clip the image pixel values
     clipped_image = np.clip(image_array, lower_threshold, upper_threshold)
