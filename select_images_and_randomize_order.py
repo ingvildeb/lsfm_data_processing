@@ -3,8 +3,8 @@ import shutil
 import random
 
 # Define source and target directories
-source_directory = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\selected_sections\chunked_images\filtered_image_chunks")
-target_directory = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\selected_sections\chunked_images\sample_files")
+source_directory = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\training_with_MIPs\selected_sections\chunked_images\filtered_image_chunks")
+target_directory = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\training_with_MIPs\training_chunks")
 
 # Create the target directory if it doesn't exist
 target_directory.mkdir(exist_ok=True)
