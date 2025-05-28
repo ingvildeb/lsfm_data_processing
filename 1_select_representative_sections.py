@@ -8,8 +8,8 @@ from pathlib import Path
 
 ## Specify the paths (any number of paths) to LSFM data 
 folder_paths = [Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_20\20250320_17_02_13_NB_CS0290_M_P533_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\\"),
-                Path("M:\SmartSPIM_Data\2025\2025_03\2025_03_25\20250325_14_16_38_NB_CS0295_F_P417_Tg_SwDI_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\\"),
-                Path("M:\SmartSPIM_Data\2025\2025_03\2025_03_27\20250327_19_07_55_NB_CS0302_F_P428_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\\"),
+                Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_25\20250325_14_16_38_NB_CS0295_F_P417_Tg_SwDI_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\\"),
+                Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_27\20250327_19_07_55_NB_CS0302_F_P428_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\\"),
                 ]
 
 ## Specify the channel to select images from and the sample size (number of selected images per sample)
@@ -30,10 +30,10 @@ for path in folder_paths:
     sample_id, sample_age, sample_geno = folder_name.split("_")[5], folder_name.split("_")[7], folder_name.split("_")[8]
 
     channel_wavelengths = {0: "488", 1: "561", 2: "640"}
-    file_path = path / f"Ex_{channel_wavelengths.get(channel)}_Ch{channel}_stitched"
+    file_path = path / f"Ex_{channel_wavelengths.get(channel)}_Ch{channel}_stitched_MIP20um"
 
     # Using pathlib to glob files
-    files = sorted(file_path.glob("*.tif"))
+    files = sorted(file_path.glob("*.tiff"))
 
     # Ensure at least sample_size items exist in selected_images
     if len(files) < sample_size:
