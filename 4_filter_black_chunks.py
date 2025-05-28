@@ -6,10 +6,10 @@ import shutil
 from utils import get_avg_pixel_value
 
 # Define base data path
-base_data_path = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\selected_sections\chunked_images\\")
+base_data_path = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\training_with_MIPs\selected_sections\chunked_images\\")
 
 # Get input paths using pathlib
-image_chunk_paths = base_data_path.glob("*Ch1")
+image_chunk_paths = base_data_path.glob("*")
 #atlas_chunk_paths = base_data_path.glob("*atlas_slice")
 
 # Define output paths and create directories if they don't exist
@@ -26,7 +26,7 @@ for image_chunk_path in image_chunk_paths:
 
     for chunk_path in image_chunks:
         # Extract chunk name and number using pathlib
-        chunk_name = chunk_path.stem.split("_chunk")[0]
+        chunk_name = chunk_path.stem.split("_chunk")[0] 
         chunk_number = chunk_path.stem.split("chunk_")[-1]
 
         # Calculate average pixel value
