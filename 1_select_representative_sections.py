@@ -33,7 +33,7 @@ for path in folder_paths:
     file_path = path / f"Ex_{channel_wavelengths.get(channel)}_Ch{channel}_stitched_MIP20um"
 
     # Using pathlib to glob files
-    files = sorted(file_path.glob("*.tiff"))
+    files = sorted(file_path.glob("*.tif"))
 
     # Ensure at least sample_size items exist in selected_images
     if len(files) < sample_size:

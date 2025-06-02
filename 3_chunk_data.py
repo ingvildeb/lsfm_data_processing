@@ -5,7 +5,7 @@ from utils import chunk_image
 file_path = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\training_with_MIPs\selected_sections\\")
 
 # Glob for TIFF files using pathlib
-files = file_path.glob("*.tiff")
+files = file_path.glob("*.tif")
 
 # Process each file
 for file in files:
