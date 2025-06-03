@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import cv2
 
+
 def get_avg_pixel_value(file):
     # Load image and convert to array
     image = Image.open(file)
@@ -60,4 +61,34 @@ def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness):
         # Save MIP image with plane identifiers
         mip_filename = f"MIP_{first_plane}_{last_plane}.tif"
         mip_path = output_dir / mip_filename
+        print(f"Saving MIP {mip_path}")
         cv2.imwrite(str(mip_path), mip_img)
+
+
+def normalize_images(in_dir, out_dir, min=0, max=99.5, suffix=".tif"):
+    in_path = Path(in_dir)
+    image_list = in_path.glob(f"*{suffix}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    for image in image_list:
+        print(f"Normalizing {image} ...")
+        image_pil = Image.open(image)
+
+        # Convert image to NumPy array for manipulation
+        image_array = np.array(image_pil)
+
+        # Define clipping thresholds
+        lower_threshold = np.percentile(image_array, min)
+        upper_threshold = np.percentile(image_array, max)
+
+        # Clip the image pixel values
+        clipped_image = np.clip(image_array, lower_threshold, upper_threshold)
+
+        # Normalize to range 0-255 and convert to uint8
+        normalized_image = cv2.normalize(clipped_image, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+        img_out_path = out_dir / image.name
+        print(f"Saving normalized image to {img_out_path}")
+
+        # Save the image
+        cv2.imwrite(str(img_out_path), normalized_image)
