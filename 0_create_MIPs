@@ -1,25 +1,40 @@
 from pathlib import Path
 import cv2
 import numpy as np
-from utils import create_mips_from_folder
+from utils import create_mips_from_folder, normalize_images
 
-# Variables to be set by the user
-input_folders = [Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_20\20250320_19_47_13_NB_CS0291_M_P533_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_24\20250324_11_36_15_IEB_CS293_M_P533_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_24\20250324_14_34_33_IEB_CS0292_M_P533_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_25\20250325_10_58_28_NB_CS0294_F_P417_Tg_SwDI_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_25\20250325_14_16_38_NB_CS0295_F_P417_Tg_SwDI_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_26\20250326_10_56_52_NB_CS0296_F_P415_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_26\20250326_14_19_35_NB_CS0300_F_P341_Tg_SwDI_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_27\20250327_15_50_47_NB_CS0301_F_P341_Tg_SwDI_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_27\20250327_19_07_55_NB_CS0302_F_P428_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_28\20250328_10_45_32_NB_CS0303_F_P428_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched")
+# USER PARAMETERS
+
+# Give your input folders 
+# (the path should be to the stitched folder of the channel to create MIPs for)
+# You can put as many as you'd like within the brackets, separated by comma
+input_folders = [Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_15\20250415_11_06_50_NB_NB058_F_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_200ul_RO_Destripe_DONE\Ex_561_Ch1_stitched")
                  ]
+# MIP parameters
+z_step_size = 4  # Give the step size of your images
+mip_thickness = 20  # The desired thickness for MIP in micrometers
+
+# Normalization parameters
+# Set to False if you do not want normalization
+do_normalization = True 
+
+# Optionally adjust the min and max clipping values. These values work well for NeuN images.
+min_val = 0
+max_val = 99.5
+
+## Main code, do not edit
 
 for folder in input_folders:
-    z_step_size = 4  # in micrometers, for example
-    mip_thickness = 20  # The desired thickness for MIP, e.g., 20 micrometers
 
-    output_folder = folder.parent / f"{folder.name}_MIP{mip_thickness}um"
+    MIP_output_folder = folder.parent / f"{folder.name}_MIP{mip_thickness}um"
+    create_mips_from_folder(folder, MIP_output_folder, z_step_size, mip_thickness)
 
-    create_mips_from_folder(folder, output_folder, z_step_size, mip_thickness)
+    if do_normalization:
+        normalize_images(MIP_output_folder, MIP_output_folder, min_val, max_val)
+    else:
+        continue
+
+
+    
+
+
