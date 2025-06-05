@@ -8,31 +8,33 @@ from utils import create_mips_from_folder, normalize_images
 # Give your input folders 
 # (the path should be to the stitched folder of the channel to create MIPs for)
 # You can put as many as you'd like within the brackets, separated by comma
-input_folders = [Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_15\20250415_11_06_50_NB_NB058_F_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_200ul_RO_Destripe_DONE\Ex_561_Ch1_stitched")
+input_folders = [Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_17\20250417_18_38_32_NB_NB060_M_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_100ul_RO_Destripe_DONE\Ex_561_Ch1_stitched"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_23\20250423_16_45_50_NB_NB063_F_P134_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_200ul_RO_Destripe_DONE\Ex_561_Ch1_stitched"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_15\20250415_13_49_05_NB_NB062_M_P120_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_200ul_RO_Destripe_DONE\Ex_561_Ch1_stitched")
                  ]
 # MIP parameters
 z_step_size = 4  # Give the step size of your images
 mip_thickness = 20  # The desired thickness for MIP in micrometers
-
+ 
 # Normalization parameters
 # Set to False if you do not want normalization
 do_normalization = True 
 
 # Optionally adjust the min and max clipping values. These values work well for NeuN images.
 min_val = 0
-max_val = 99.5
+max_val = 99.9
 
-## Main code, do not edit
+## MAIN CODE, DO NOT EDIT
 
 for folder in input_folders:
 
-    MIP_output_folder = folder.parent / f"{folder.name}_MIP{mip_thickness}um"
-    create_mips_from_folder(folder, MIP_output_folder, z_step_size, mip_thickness)
-
     if do_normalization:
+        MIP_output_folder = folder.parent / f"{folder.name}_MIP{mip_thickness}um_min{min_val}_max{max_val}"
+        create_mips_from_folder(folder, MIP_output_folder, z_step_size, mip_thickness)
         normalize_images(MIP_output_folder, MIP_output_folder, min_val, max_val)
     else:
-        continue
+        MIP_output_folder = folder.parent / f"{folder.name}_MIP{mip_thickness}um"
+        create_mips_from_folder(folder, MIP_output_folder, z_step_size, mip_thickness)
 
 
     
