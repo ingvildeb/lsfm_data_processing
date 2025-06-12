@@ -7,17 +7,18 @@ from pathlib import Path
 # USER PARAMETERS
 
 ## Specify the paths (any number of paths) to LSFM data 
-folder_paths = [Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_20\20250320_17_02_13_NB_CS0290_M_P533_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\\"),
-                Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_25\20250325_14_16_38_NB_CS0295_F_P417_Tg_SwDI_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\\"),
-                Path(r"M:\SmartSPIM_Data\2025\2025_03\2025_03_27\20250327_19_07_55_NB_CS0302_F_P428_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\\"),
-                ]
+folder_paths = [Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_24\20250424_11_45_45_IEB_IEB0031_F_P14_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE\Ex_488_Ch0_stitched_MIP20um_min0_max99.9\\"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_02\20250602_14_50_20_LJS_IEB0035_M_P56_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE\Ex_488_Ch0_stitched_MIP20um_min0_max99.9\\"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_05\2025_05_23\20250523_10_33_49_IEB_IEB0046_F_P10_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE\Ex_488_Ch0_stitched_MIP20um_min0_max99.9\\"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_05\2025_05_23\20250523_12_15_52_IEB_IEB0066_F_P8_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE\Ex_488_Ch0_stitched_MIP20um_min0_max99.9\\")
+                 ]
 
 ## Specify the channel to select images from and the sample size (number of selected images per sample)
-channel = 1
+channel = 0
 sample_size = 5
 
 ## Specify where you want your selected images to be saved
-out_path = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\training_with_MIPs\selected_sections\\")
+out_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\Aldh_model\training_sections\\")
 out_path.mkdir(exist_ok=True)
 
 ##################
@@ -26,14 +27,13 @@ out_path.mkdir(exist_ok=True)
 sample_size = sample_size + 2
 
 for path in folder_paths:
-    folder_name = path.name
-    sample_id, sample_age, sample_geno = folder_name.split("_")[5], folder_name.split("_")[7], folder_name.split("_")[8]
+    folder_parent = path.parent.name
+    sample_id, sample_age, sample_geno = folder_parent.split("_")[5], folder_parent.split("_")[7], folder_parent.split("_")[8]
 
     channel_wavelengths = {0: "488", 1: "561", 2: "640"}
-    file_path = path / f"Ex_{channel_wavelengths.get(channel)}_Ch{channel}_stitched_MIP20um"
 
     # Using pathlib to glob files
-    files = sorted(file_path.glob("*.tif"))
+    files = sorted(path.glob("*.tif"))
 
     # Ensure at least sample_size items exist in selected_images
     if len(files) < sample_size:
