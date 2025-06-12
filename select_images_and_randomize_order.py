@@ -3,8 +3,9 @@ import shutil
 import random
 
 # Define source and target directories
-source_directory = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\training_with_MIPs\selected_sections\chunked_images\filtered_image_chunks")
-target_directory = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\training_with_MIPs\training_chunks")
+source_directory = Path(r"Z:\Labmembers\Ingvild\Cellpose\Aldh_model\training_sections\chunked_images\filtered_image_chunks")
+target_directory = Path(r"Z:\Labmembers\Ingvild\Cellpose\Aldh_model\training_chunks")
+select_every = 5
 
 # Create the target directory if it doesn't exist
 target_directory.mkdir(exist_ok=True)
@@ -13,7 +14,7 @@ target_directory.mkdir(exist_ok=True)
 files = sorted(source_directory.glob("*"))
 
 # Calculate indices for every 10th file in the list
-indices = [i for i in range(len(files)) if i % 10 == 0]
+indices = [i for i in range(len(files)) if i % select_every == 0]
 
 # Shuffle the indices to create random unique prefixes
 random.shuffle(indices)
@@ -33,4 +34,4 @@ for counter, i in enumerate(indices):
     shutil.copy2(file, destination_path)
     print(f"Copied: {file} as {destination_file_name}")
 
-print("Completed copying every 10th file with unique random prefix.")
+print(f"Completed copying every {select_every}th file with unique random prefix.")
