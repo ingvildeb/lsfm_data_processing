@@ -65,30 +65,44 @@ def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness):
         cv2.imwrite(str(mip_path), mip_img)
 
 
-def normalize_images(in_dir, out_dir, min=0, max=99.5, suffix=".tif"):
-    in_path = Path(in_dir)
-    image_list = in_path.glob(f"*{suffix}")
-    out_dir.mkdir(parents=True, exist_ok=True)
+def normalize_image(image_path, min_val=0, max_val=99.5):
+    """Normalize a single image using given min/max values."""
+    image_pil = Image.open(image_path)
 
-    for image in image_list:
-        print(f"Normalizing {image} ...")
-        image_pil = Image.open(image)
+    # Convert image to NumPy array for manipulation
+    image_array = np.array(image_pil)
 
-        # Convert image to NumPy array for manipulation
-        image_array = np.array(image_pil)
+    # Define clipping thresholds
+    lower_threshold = np.percentile(image_array, min_val)
+    upper_threshold = np.percentile(image_array, max_val)
 
-        # Define clipping thresholds
-        lower_threshold = np.percentile(image_array, min)
-        upper_threshold = np.percentile(image_array, max)
+    # Clip the image pixel values
+    clipped_image = np.clip(image_array, lower_threshold, upper_threshold)
 
-        # Clip the image pixel values
-        clipped_image = np.clip(image_array, lower_threshold, upper_threshold)
+    # Normalize to range 0-255 and convert to uint8
+    normalized_image = cv2.normalize(clipped_image, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
 
-        # Normalize to range 0-255 and convert to uint8
-        normalized_image = cv2.normalize(clipped_image, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    return normalized_image
 
-        img_out_path = out_dir / image.name
-        print(f"Saving normalized image to {img_out_path}")
 
-        # Save the image
-        cv2.imwrite(str(img_out_path), normalized_image)
+def normalize_and_save(input_image_path, output_dir, min_max_params):
+    """Normalize the image with various min/max parameters and save each normalized image with the specified naming convention."""
+    # Create a directory for output images
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for min_val, max_val in min_max_params:
+        print(f"Normalizing with min: {min_val}, max: {max_val}")
+
+        # Normalize the image using the given min and max
+        normalized_image_array = normalize_image(input_image_path, min_val, max_val)
+        
+        # Create a filename based on the original file name and normalization parameters
+        original_name = Path(input_image_path).stem  # Get the original file name without extension
+        original_extension = Path(input_image_path).suffix  # Get the original file extension
+        normalized_filename = f"{original_name}_norm_min{min_val}_max{max_val}{original_extension}"
+        
+        # Save the normalized image
+        normalized_image_path = output_dir / normalized_filename
+        cv2.imwrite(str(normalized_image_path), normalized_image_array)
+        print(f"Saved normalized image to {normalized_image_path}")
