@@ -5,19 +5,32 @@ from PIL import Image
 import shutil
 from utils import get_avg_pixel_value
 
-# Define base data path
-base_data_path = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\training_with_MIPs\selected_sections\chunked_images\\")
+
+##################
+# USER PARAMETERS
+
+# Define the path to your chunked images
+data_path = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202503_LargeBatch_AgingCCFBrains\pilot_analysis\561Neun\training_with_MIPs\selected_sections\chunked_images\\")
+
+# Define a pixel value threshold. Images with an average intensity below this threshold will be filtered out.
+pixel_val_threshold = 100
+
+# Set to True if you also have atlas chunks
+atlas_chunks_included = False
+
+
+# MAIN CODE, do not edit
 
 # Get input paths using pathlib
-image_chunk_paths = base_data_path.glob("*")
-#atlas_chunk_paths = base_data_path.glob("*atlas_slice")
-
 # Define output paths and create directories if they don't exist
-image_out_path = base_data_path / "filtered_image_chunks"
-#atlas_out_path = base_data_path / "filtered_atlas_chunks"
-
+image_chunk_paths = data_path.glob("*")
+image_out_path = data_path / "filtered_image_chunks"
 image_out_path.mkdir(exist_ok=True)
-#atlas_out_path.mkdir(exist_ok=True)
+
+if atlas_chunks_included:
+    atlas_chunk_paths = data_path.glob("*atlas_slice")
+    atlas_out_path = data_path / "filtered_atlas_chunks"
+    atlas_out_path.mkdir(exist_ok=True)
 
 # Process each image chunk
 for image_chunk_path in image_chunk_paths:
@@ -32,10 +45,12 @@ for image_chunk_path in image_chunk_paths:
         # Calculate average pixel value
         average_pixel_value = get_avg_pixel_value(str(chunk_path))
         average_pixel_value = int(average_pixel_value)
-        # Build atlas chunk path using pathlib
-        #atlas_chunk_path = chunk_path.parent.with_name(f"{image_chunk_path.name}_atlas_slice") / f"{chunk_name}_atlas_slice_chunk_{chunk_number}.tif"
 
-        if average_pixel_value > 100:
+        # Build atlas chunk path using pathlib
+        if atlas_chunks_included:
+            atlas_chunk_path = chunk_path.parent.with_name(f"{image_chunk_path.name}_atlas_slice") / f"{chunk_name}_atlas_slice_chunk_{chunk_number}.tif"
+
+        if average_pixel_value > pixel_val_threshold:
             # Display the chunk image
             chunk_img = np.array(Image.open(chunk_path))
             print(f"Displaying {chunk_path}, Shape: {chunk_img.shape}")
@@ -45,4 +60,6 @@ for image_chunk_path in image_chunk_paths:
 
             # Copy files using pathlib for path management
             shutil.copy2(chunk_path, image_out_path / chunk_path.name) 
-            #shutil.copy2(atlas_chunk_path, atlas_out_path / atlas_chunk_path.name)
+            
+            if atlas_chunks_included:
+                shutil.copy2(atlas_chunk_path, atlas_out_path / atlas_chunk_path.name)
