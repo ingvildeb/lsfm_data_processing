@@ -1,11 +1,11 @@
 from pathlib import Path
 import shutil
 import random
+import math
 
 # Define source and target directories
-source_directory = Path(r"Z:\Labmembers\Ingvild\Cellpose\Aldh_model\training_sections\chunked_images\filtered_image_chunks")
-target_directory = Path(r"Z:\Labmembers\Ingvild\Cellpose\Aldh_model\training_chunks")
-select_every = 5
+source_directory = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\training_sections\chunked_images\filtered_image_chunks")
+target_directory = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\manual_and_human-in-the-loop\selected_chunks")
 
 # Create the target directory if it doesn't exist
 target_directory.mkdir(exist_ok=True)
@@ -13,17 +13,26 @@ target_directory.mkdir(exist_ok=True)
 # List all files in the source directory and sort them to maintain order
 files = sorted(source_directory.glob("*"))
 
-# Calculate indices for every 10th file in the list
-indices = [i for i in range(len(files)) if i % select_every == 0]
+# Ask the user for the number of files to select
+num_files_to_select = 100
 
-# Shuffle the indices to create random unique prefixes
-random.shuffle(indices)
+# Calculate the spacing required
+total_files = len(files)
+if num_files_to_select > total_files:
+    print("The number of files to select is greater than the number of available files. Selecting all available files.")
+    num_files_to_select = total_files
 
-# Iterate over indices and copy corresponding files with a unique prefix
-for counter, i in enumerate(indices):
-    file = files[i]
-    
-    # Use shuffled indices as unique prefix
+spacing = total_files / num_files_to_select
+
+# Select files based on calculated spacing
+selected_files = [files[math.floor(i * spacing)] for i in range(num_files_to_select)]
+
+# Shuffle the selected files to randomize their order
+random.shuffle(selected_files)
+
+# Iterate over the shuffled selected files and copy them with a unique prefix
+for counter, file in enumerate(selected_files):
+    # Use the counter as a unique prefix
     random_prefix = counter
     
     # Rename the file with a unique prefix
@@ -34,4 +43,4 @@ for counter, i in enumerate(indices):
     shutil.copy2(file, destination_path)
     print(f"Copied: {file} as {destination_file_name}")
 
-print(f"Completed copying every {select_every}th file with unique random prefix.")
+print(f"Completed copying {num_files_to_select} files with unique prefixes.")
