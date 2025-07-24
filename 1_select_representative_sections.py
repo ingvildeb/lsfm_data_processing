@@ -14,7 +14,6 @@ folder_paths = [Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_24\20250424_11_45_
                  ]
 
 ## Specify the channel to select images from and the sample size (number of selected images per sample)
-channel = 0
 sample_size = 5
 
 ## Specify where you want your selected images to be saved
@@ -29,8 +28,6 @@ sample_size = sample_size + 2
 for path in folder_paths:
     folder_parent = path.parent.name
     sample_id, sample_age, sample_geno = folder_parent.split("_")[5], folder_parent.split("_")[7], folder_parent.split("_")[8]
-
-    channel_wavelengths = {0: "488", 1: "561", 2: "640"}
 
     # Using pathlib to glob files
     files = sorted(path.glob("*.tif"))
