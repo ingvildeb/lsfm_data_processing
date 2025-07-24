@@ -13,6 +13,7 @@ input_folders = [Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_24\20250424_11_45
                  Path(r"M:\SmartSPIM_Data\2025\2025_05\2025_05_23\20250523_10_33_49_IEB_IEB0046_F_P10_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE\\"),
                  Path(r"M:\SmartSPIM_Data\2025\2025_05\2025_05_23\20250523_12_15_52_IEB_IEB0066_F_P8_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE\\")
                  ]
+
 # MIP parameters
 z_step_size = 5  # Give the step size of your images
 mip_thickness = 20  # The desired thickness for MIP in micrometers
