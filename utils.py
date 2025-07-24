@@ -4,6 +4,7 @@ import tifffile as tiff
 import os
 from pathlib import Path
 import cv2
+import nibabel as nib
 
 
 def get_avg_pixel_value(file):
@@ -106,3 +107,41 @@ def normalize_and_save(input_image_path, output_dir, min_max_params):
         normalized_image_path = output_dir / normalized_filename
         cv2.imwrite(str(normalized_image_path), normalized_image_array)
         print(f"Saved normalized image to {normalized_image_path}")
+
+
+def extract_atlas_plate(reg_volume, image, all_images_path):
+
+    # Calculate total number of images
+    all_images = list(all_images_path.glob("*.tif"))
+    no_images = len(all_images)
+
+    # Access registered volume and find the relationship between the size of the z axis in atlas vol versus image data
+    nifti_img = nib.load(reg_volume)
+    data = np.asanyarray(nifti_img.dataobj)
+    vol_axis_len = data.shape[1]
+    axis_ratio = no_images / vol_axis_len 
+  
+    # calculate the absolute index of the image slice
+    # # the last number in the file name uses a 0-based indexing with an increment of 20
+    name = image.name
+    number = int(name.split("_")[2])
+    image_index = (number / 20)
+
+    # find the corresponding z axis slice in the atlas volume, scaling by the axis ratio to get the right one
+    atlas_index = int(np.round(image_index / axis_ratio))
+    atlas_slice = data[:, atlas_index, :]
+
+    # make the image into an array and get the width and height for scaling purposes
+    image_slice = np.array(Image.open(image))
+    target_shape = image_slice.shape[:2]
+
+    # rotate and scale the horizontal slice to the shape of the image slice
+    # use no interpolation to ensure no changes in label values
+    rotated_atlas_slice = np.rot90(atlas_slice)
+    resized_atlas_slice = cv2.resize(rotated_atlas_slice, 
+                                          (target_shape[1], target_shape[0]), 
+                                          interpolation=cv2.INTER_NEAREST)
+    
+    resized_atlas_slice_16bit = resized_atlas_slice.astype(np.uint16)
+
+    return name, resized_atlas_slice_16bit
