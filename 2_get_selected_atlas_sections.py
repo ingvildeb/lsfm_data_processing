@@ -17,10 +17,12 @@ selected_images_path = Path(r"Z:\Labmembers\Ingvild\Testing_CellPose\selected_im
 
 # MAIN CODE, do not edit
 
+out_path = selected_images_path / "atlas_slices"
+out_path.mkdir(parents=True, exist_ok=True)
+
 all_images_path = sample_path / "Ex_488_Ch0_stitched"
 subset_images = selected_images_path.glob("*.tif")
 reg_vol_path = sample_path / "_01_registration" / "ANTs_TransformedImage.nii.gz"
-
 
 
 for image in subset_images:
@@ -37,6 +39,6 @@ for image in subset_images:
 
     # save the atlas slice as a 16 bit tiff image
 
-    cv2.imwrite(rf'{selected_images_path}\{name.split(".")[0]}_atlas_slice.tif', atlas_slice)
+    cv2.imwrite(rf'{out_path}\{name.split(".")[0]}_atlas_slice.tif', atlas_slice)
 
     print("Image has been saved successfully.")
