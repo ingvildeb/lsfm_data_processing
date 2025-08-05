@@ -14,7 +14,6 @@ chunk_dir = Path(r"Z:\Labmembers\Ingvild\Testing_CellPose\test_data\Ex_488_Ch0_s
 # Give the path to your filtered atlas chunks
 atlas_chunk_dir = Path(r"Z:\Labmembers\Ingvild\Testing_CellPose\test_data\Ex_488_Ch0_stitched_selected_data\chunked_images\filtered_atlas_chunks\\")
 atlas_chunks = list(atlas_chunk_dir.glob("*.tif"))
-#atlas_ids = Path("Z:\Labmembers\Ingvild\Testing_CellPose\test_data\CCFv3_OntologyStructure_u16.xlsx")
 
 # Specify the number of chunks to select
 number_of_chunks = 100
