@@ -29,7 +29,7 @@ def chunk_image(path_to_image, image_outdir, chunk_size=512):
             chunk = img[i:i+chunk_size, j:j+chunk_size]
             tiff.imsave("{}/{}_chunk_{}_{}.tif".format(image_outdir,image_name,i, j), chunk)
 
-def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness):
+def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness, underscores_to_plane_z):
     # Calculate the number of slices to include in each MIP based on the mip_thickness
     slices_per_mip = int(mip_thickness / z_step_size)
     if slices_per_mip < 1:
@@ -56,8 +56,9 @@ def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness):
         mip_img = np.max(np.stack(slices, axis=0), axis=0)
 
         # Extract plane identifiers for the first and last images
-        first_plane = tiff_files[start_slice].stem.split('_')[2]
-        last_plane = tiff_files[end_slice - 1].stem.split('_')[2]
+
+        first_plane = tiff_files[start_slice].stem.split('_')[underscores_to_plane_z]
+        last_plane = tiff_files[end_slice - 1].stem.split('_')[underscores_to_plane_z]
 
         # Save MIP image with plane identifiers
         mip_filename = f"MIP_{first_plane}_{last_plane}.tif"
