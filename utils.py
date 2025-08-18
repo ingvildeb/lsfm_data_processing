@@ -7,13 +7,21 @@ import cv2
 import nibabel as nib
 
 
-def get_avg_pixel_value(file):
+def get_avg_pixel_value(path_to_image):
     # Load image and convert to array
-    image = Image.open(file)
-    pixels = np.array(image)
-    # Calculate the average pixel value
-    average_pixel_value = np.mean(image)
+    image = tifffile.TiffFile(path_to_image).asarray()
+    shape = image.shape
+
+    if len(shape) == 2:
+        average_pixel_value = np.mean(image)
+
+    elif len(shape) == 3:
+        middle_z = int(shape[0] / 2)
+        image = image[middle_z, :, :]
+        average_pixel_value = np.mean(image)
+  
     return average_pixel_value
+
 
 def chunk_image(path_to_image, image_outdir, chunk_size):
     # read the image
