@@ -8,17 +8,18 @@ from utils import tifs_to_zstack
 # USER PARAMETERS
 
 ## Specify the paths (any number of paths) to LSFM data 
-folder_paths = [Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_11\20250611_09_52_20_LJS_IEB0041_M_P14_Aldh1_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_640_Ch2_stitched_MIP20um_min0_max99.7\\")
+folder_paths = [Path(r"Z:\LSFM\2025\2025_06\2025_06_20\20250620_12_59_29_LJS_IEB0037_M_P56_Aldh1_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_normalized_min0_max99.9\\")
                  ]
 
-## Specify the channel to select images from and the sample size (number of selected images per sample)
+## Specify the sample size (number of selected images per sample)
 sample_size = 3
 
 ## Specify where you want your selected images to be saved
-out_path = Path(r"Z:\Labmembers\Ingvild\Testing_CellPose\test_3d\test_iba1\\")
+out_path = Path(r"Z:\Labmembers\Ingvild\Testing_CellPose\test_3d\test_iba1\chunked_images_512by512\no_mip_stack\\")
 
-## Z stack options. Z stacks can be useful in training models for cells that have complex morphology,
-# such as microglia or pericytes
+## Z STACK OPTIONS
+#  Z stacks can be useful in training models for cells that have complex morphology, such as microglia or pericytes
+
 # Set to False if you do not want z stacks
 make_zstacks = True
 
