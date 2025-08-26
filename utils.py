@@ -1,33 +1,54 @@
 from PIL import Image
 import numpy as np
-import tifffile as tiff
+import tifffile
 import os
 from pathlib import Path
 import cv2
 import nibabel as nib
 
 
-def get_avg_pixel_value(file):
+def get_avg_pixel_value(path_to_image):
     # Load image and convert to array
-    image = Image.open(file)
-    pixels = np.array(image)
-    # Calculate the average pixel value
-    average_pixel_value = np.mean(image)
+    image = tifffile.TiffFile(path_to_image).asarray()
+    shape = image.shape
+
+    if len(shape) == 2:
+        average_pixel_value = np.mean(image)
+
+    elif len(shape) == 3:
+        middle_z = int(shape[0] / 2)
+        image = image[middle_z, :, :]
+        average_pixel_value = np.mean(image)
+  
     return average_pixel_value
 
-def chunk_image(path_to_image, image_outdir, chunk_size=512):
+
+def chunk_image(path_to_image, image_outdir, chunk_size):
     # read the image
-    img = tiff.imread(path_to_image)
-    image_name = (os.path.basename(path_to_image)).split(".")[0]
+    img = tifffile.TiffFile(path_to_image).asarray()
+    image_name = path_to_image.stem
 
     # get the shape of the image
     shape = img.shape
-
+    
     # crop the image and save each chunk
     for i in range(0, shape[0], chunk_size):
         for j in range(0, shape[1], chunk_size):
             chunk = img[i:i+chunk_size, j:j+chunk_size]
-            tiff.imsave("{}/{}_chunk_{}_{}.tif".format(image_outdir,image_name,i, j), chunk)
+            tifffile.imsave("{}/{}_chunk_{}_{}.tif".format(image_outdir,image_name,i, j), chunk)
+
+def chunk_z_stack(path_to_image, image_outdir, chunk_size):
+
+    full_stack = tifffile.TiffFile(path_to_image).asarray()
+    shape = full_stack.shape
+    image_name = path_to_image.stem
+
+    # crop the image and save each chunk
+    for i in range(0, shape[1], chunk_size):
+        for j in range(0, shape[2], chunk_size):
+                stack_chunk = full_stack[:, i:i+chunk_size, j:j+chunk_size]
+                tifffile.imsave("{}/{}_chunk_{}_{}.tif".format(image_outdir,image_name,i, j), stack_chunk)
+
 
 def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness, underscores_to_plane_z):
     # Calculate the number of slices to include in each MIP based on the mip_thickness
@@ -146,3 +167,18 @@ def extract_atlas_plate(reg_volume, image, all_images_path, underscores_to_index
     resized_atlas_slice_16bit = resized_atlas_slice.astype(np.uint16)
 
     return name, resized_atlas_slice_16bit
+
+def tifs_to_zstack(file_list, out_dir, out_prefix):
+
+    images = []
+    names = []
+    for file in file_list:
+        img = Image.open(file)
+        images.append(np.array(img))
+        name = file.stem
+        names.append(name)
+
+    zstack_array = np.stack(images)
+    output_filename = out_dir / f"{out_prefix}_zstack_{names[0]}_to_{names[-1]}.tif"
+
+    tifffile.imwrite(output_filename, zstack_array, photometric='minisblack')
