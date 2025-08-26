@@ -110,7 +110,7 @@ def normalize_and_save(input_image_path, output_dir, min_max_params):
         print(f"Saved normalized image to {normalized_image_path}")
 
 
-def extract_atlas_plate(reg_volume, image, all_images_path):
+def extract_atlas_plate(reg_volume, image, all_images_path, underscores_to_index):
 
     # Calculate total number of images
     all_images = list(all_images_path.glob("*.tif"))
@@ -124,8 +124,8 @@ def extract_atlas_plate(reg_volume, image, all_images_path):
   
     # calculate the absolute index of the image slice
     # # the last number in the file name uses a 0-based indexing with an increment of 20
-    name = image.name
-    number = int(name.split("_")[2])
+    name = image.stem
+    number = int(name.split("_")[underscores_to_index])
     image_index = (number / 20)
 
     # find the corresponding z axis slice in the atlas volume, scaling by the axis ratio to get the right one
