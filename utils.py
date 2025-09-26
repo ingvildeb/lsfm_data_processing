@@ -57,7 +57,7 @@ def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness, u
         raise ValueError("MIP thickness must be at least equal to the z-step size.")
 
     # Create output directory if it doesn't exist
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=False)
 
     # List all TIFF files
     tiff_files = sorted([f for f in input_dir.glob('*.tif')])
