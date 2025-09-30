@@ -60,7 +60,7 @@ def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness, u
     output_dir.mkdir(parents=True, exist_ok=False)
 
     # List all TIFF files
-    tiff_files = sorted([f for f in input_dir.glob('*.tif')])
+    tiff_files = sorted([f for f in input_dir.glob('*.tif')] + [f for f in input_dir.glob('*.tiff')])
     num_files = len(tiff_files)
 
     # Process each MIP section
