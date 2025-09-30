@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import shutil
 from utils import create_mips_from_folder, normalize_image
+import json
 
 # USER PARAMETERS
 
@@ -26,10 +27,7 @@ input_folders = [Path(r"M:\SmartSPIM_Data\2025\2025_07\2025_07_30\20250730_10_05
                  Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_12\20250612_14_38_54_IEB_IEB0055_F_P14_MOBP_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
                  Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_20\20250620_12_59_29_LJS_IEB0037_M_P56_Aldh1_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
                  Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_11\20250611_09_52_20_LJS_IEB0041_M_P14_Aldh1_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_07\2025_07_29\20250729_10_56_23_NB_51119_M_P56_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE")
-
-                 ]
-
+                 Path(r"M:\SmartSPIM_Data\2025\2025_07\2025_07_29\20250729_10_56_23_NB_51119_M_P56_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE")]
 
 # MIP parameters
 
@@ -48,46 +46,44 @@ do_normalization = True
 min_val = 0
 max_val = 99.9
 
-# Flag for automatically finding z step size
-# Only works if your folder names have _xumzstep_ in it, where x is the z step size
-auto_detect_z_step = True
 
-# Alternatively, set your z step manually
-z_step_user = 4
+## ADVANCED PARAMETERS, not relevant for most users
+
+# If you do not have a metadata.json file, set your z step manually
+z_step_user = None
 
 # Flag if your files follow the old file / folder naming convention
 flag_old_format = False
 
 ## MAIN CODE
 
-if auto_detect_z_step:
-
-    z_steps = [i.name.split('umstep')[0].split('_')[-1] for i in input_folders]
-    
-    if len(set(z_steps)) == 1:
-        z_step_size = z_steps[0]
-        try:
-            z_step_size = int(z_step_size)
-            print(f'Z step set to {z_step_size}')
-
-        except ValueError:
-            print(f"Error: The detected z step size, {z_step_size} cannot be converted to an integer. Try setting your z step manually instead.")
-        
-    else:
-        raise ValueError(f"Different z step values found in file names! All z step values for folders must be the same.")
-
-else:
-    z_step_size = z_step_user
-
-params_dict = {"create_MIPs": create_MIPs,
-               "mip_thickness": mip_thickness,
-               "channel": channel,
-               "do_normalization": do_normalization,
-               "min_val": min_val,
-               "max_val": max_val,
-               "z_step_size": z_step_size}
-
 for folder in input_folders:
+    
+    json_file = Path(folder) / "metadata.json"
+
+    # Check if the JSON file exists
+    if json_file.is_file():
+        with open(json_file, 'r') as file:
+            json_data = json.load(file)
+            z_step_size = int(float(json_data['session_config']['Z step (µm)']))
+            print(f"Using z step of {z_step_size}")
+    else:
+        print(f"No {json_file} file found.")
+
+        # Check if z_step_user is defined
+        if z_step_user is not None:
+            print(f"Using user defined z step, which is {z_step_user}.")
+            z_step_size = z_step_user
+        else:
+            print("Z step is set to None. Please set your z step manually and try again.")
+
+    params_dict = {"create_MIPs": create_MIPs,
+                "mip_thickness": mip_thickness,
+                "channel": channel,
+                "do_normalization": do_normalization,
+                "min_val": min_val,
+                "max_val": max_val,
+                "z_step_size": z_step_size}
 
     if flag_old_format:
         underscores_to_z_plane = 0
