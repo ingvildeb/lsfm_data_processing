@@ -10,31 +10,39 @@ import json
 # Give your input folders 
 # (the path should be to the stitched folder of the channel to create MIPs for)
 # You can put as many as you'd like within the brackets, separated by comma
-input_folders = [Path(r"M:\SmartSPIM_Data\2025\2025_07\2025_07_30\20250730_10_05_08_NB_CS0318_M_P728_C57_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_07\2025_07_30\20250730_13_00_06_NB_CS0319_M_P728_C57_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_07\2025_07_31\20250731_10_39_04_NB_CS0324_F_P104_C57_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_07\2025_07_31\20250731_13_55_49_NB_CS0325_F_P104_C57_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_07\2025_07_29\20250729_13_56_01_NB_51120_M_P56_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_12\20250612_11_31_09_IEB_IEB0023_F_P56_Aldh1_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_11\20250611_12_32_08_LJS_IEB0059_F_P14_MOBP_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_06\20250606_11_00_53_IEB_IEB0001_M_P58_OxtR_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_17\20250617_15_36_41_LJS_IEB0002_M_P58_OxtR_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_17\20250617_18_19_21_LJS_IEB0003_M_P58_OxtR_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_06\20250606_13_48_56_IEB_IEB0029_F_P14_Aldh1_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_20\20250620_10_22_49_LJS_IEB0032_F_P14_Aldh1_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_13\20250613_10_26_40_LJS_IEB0038_M_P14_Aldh1_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_10\20250610_14_31_10_LJS_IEB0043_F_P14_Aldh1_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_12\20250612_14_38_54_IEB_IEB0055_F_P14_MOBP_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_20\20250620_12_59_29_LJS_IEB0037_M_P56_Aldh1_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_06\2025_06_11\20250611_09_52_20_LJS_IEB0041_M_P14_Aldh1_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_07\2025_07_29\20250729_10_56_23_NB_51119_M_P56_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE")]
+input_folders = [Path(r"Z:\LSFM\2025\2025_10\2025_10_21\20251021_10_41_55_EH_IEB0130_M_P0_Aldh1_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_21\20251021_11_06_22_EH_IEB0132_M_P0_Aldh1_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_09\20251009_19_34_52_IEB_IEB0133_M_P4_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_07\20251007_18_51_33_IEB_IEB0134_M_P4_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_09\20251009_20_53_50_IEB_IEB0136_F_P4_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_07\20251007_20_01_06_IEB_IEB0137_M_P4_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_22\20251022_11_34_41_EH_IEB0138_M_P2_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_22\20251022_13_30_43_EH_IEB0139_M_P2_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_22\20251022_14_05_23_EH_IEB0140_F_P2_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_13\20251013_10_58_46_IEB_IEB0142_F_P4_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_23\20251023_10_08_22_EH_IEB0143_M_P4_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_09\20251009_14_07_07_IEB_IEB0144_F_P4_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_13\20251013_12_05_56_IEB_IEB0145_F_P4_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_23\20251023_10_41_47_EH_IEB0146_F_P4_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_23\20251023_11_48_35_EH_IEB0149_M_P8_Aldh1_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_24\20251024_14_11_14_EH_IEB0150_M_P4_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_13\20251013_14_20_35_IEB_IEB0151_F_P4_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_09\20251009_15_19_25_IEB_IEB0152_F_P4_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_24\20251024_14_46_29_EH_IEB0153_F_P4_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_23\20251023_12_41_35_EH_IEB0154_M_P6_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_13\20251013_15_32_10_IEB_IEB0155_F_P6_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_13\20251013_18_36_35_IEB_IEB0156_F_P6_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_13\20251013_20_05_23_IEB_IEB0157_F_P6_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_25\20251025_13_30_30_EH_IEB0158_M_P10_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_10\2025_10_25\20251025_14_44_10_EH_IEB0159_F_P10_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+                ]
 
 # MIP parameters
 
 # Set to False if you do not want to make MIPs
 create_MIPs = True
 mip_thickness = 20  # The desired thickness for MIP in micrometers
-channel = 1
+channel = 2
  
 # Normalization parameters
 
@@ -58,12 +66,13 @@ flag_old_format = False
 ## MAIN CODE
 
 for folder in input_folders:
+    print(f"Creating MIPs for {(folder.name.split("_")[5])} ...")
     
     json_file = Path(folder) / "metadata.json"
 
     # Check if the JSON file exists
     if json_file.is_file():
-        with open(json_file, 'r') as file:
+        with open(json_file, 'r', encoding='cp1252') as file:
             json_data = json.load(file)
             z_step_size = int(float(json_data['session_config']['Z step (µm)']))
             print(f"Using z step of {z_step_size}")
@@ -133,6 +142,9 @@ for folder in input_folders:
                 
         else:
             print("MIP creation and normalization set to False. Nothing to do here...")
+
+    print(f"Finished creating MIPs for {(folder.name.split("_")[5])}")
+
 
 
 
