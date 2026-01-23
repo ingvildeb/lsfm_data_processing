@@ -5,16 +5,18 @@ import numpy as np
 
 ### Edit list of path (input as many as you want, separated by commas)
 
-list_of_paths = [Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_15\20250415_11_06_50_NB_NB058_F_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_200ul_RO_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_15\20250415_13_49_05_NB_NB062_M_P120_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_200ul_RO_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_17\20250417_15_51_44_NB_NB059_F_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_120ul_RO_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_17\20250417_18_38_32_NB_NB060_M_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_100ul_RO_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_23\20250423_16_45_50_NB_NB063_F_P134_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_200ul_RO_Destripe_DONE"),
-                 Path(r"M:\SmartSPIM_Data\2025\2025_04\2025_04_23\20250423_20_00_46_NB_NB065_M_P120_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_150ul_RO_Destripe_DONE")
+list_of_paths = [Path(r"M:\SmartSPIM_Data\2025\2025_09\2025_09_25\20250925_10_18_06_NB_100350_F_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_09\2025_09_25\20250925_12_34_20_NB_100446_M_P14_Fmr1_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_10\2025_10_01\20251001_15_39_39_NB_100351_F_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_10\2025_10_01\20251001_17_54_04_NB_100352_M_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_10\2025_10_07\20251007_10_43_47_LS_100442_F_P14_Fmr1_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_10\2025_10_07\20251007_13_05_45_LS_100443_F_P14_Fmr1_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_10\2025_10_08\20251008_15_39_21_NB_100354_F_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"M:\SmartSPIM_Data\2025\2025_10\2025_10_08\20251008_18_03_51_NB_100356_F_P14_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE")
                  ]
 
 # Set the out path and select which channel to make collage for
-out_path = Path(r"Z:\Labmembers\Ingvild\RM1\protocol_testing\202504_MediumBatch_ROsamples")
+out_path = Path(r"Z:\Labmembers\Ingvild\RM1\batch_evals\batch1")
 channel = 2
 
 
@@ -35,7 +37,7 @@ for path in list_of_paths:
     sample_id, sample_age, sample_geno = folder_name.split("_")[5], folder_name.split("_")[7], folder_name.split("_")[8]
 
     channel_image_path = path / f"Ex_{channel_wavelengths.get(channel)}_Ch{channel}_stitched"
-    images = sorted(list(channel_image_path.glob("*.tif")))
+    images = sorted(list(channel_image_path.glob("*.tif*")))
 
     middle_index = int(len(images) / 2)
     selected_image = images[middle_index]
