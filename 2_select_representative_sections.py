@@ -8,20 +8,21 @@ from utils import tifs_to_zstack
 # USER PARAMETERS
 
 ## Specify the paths (any number of paths) to LSFM data 
-folder_paths = [Path(r"Z:\LSFM\2025\2025_06\2025_06_20\20250620_12_59_29_LJS_IEB0037_M_P56_Aldh1_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_normalized_min0_max99.9\\")
-                 ]
+folder_paths = [Path(r"Z:\LSFM\2025\2025_11\2025_11_06\20251106_10_11_26_NB_100477_M_P58_Fbn1_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_MIP20um_min0_max99.9"),
+                Path(r"Z:\LSFM\2025\2025_11\2025_11_06\20251106_12_45_32_NB_100582_F_P58_Ube3a_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_MIP20um_min0_max99.9")
+                ]
 
 ## Specify the sample size (number of selected images per sample)
 sample_size = 3
 
 ## Specify where you want your selected images to be saved
-out_path = Path(r"Z:\Labmembers\Ingvild\Testing_CellPose\test_3d\test_iba1\chunked_images_512by512\no_mip_stack\\")
+out_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\test_256chunks\\")
 
 ## Z STACK OPTIONS
 #  Z stacks can be useful in training models for cells that have complex morphology, such as microglia or pericytes
 
 # Set to False if you do not want z stacks
-make_zstacks = True
+make_zstacks = False
 
 # Specify the number of planes per z stack
 z_stack_number = 5 
@@ -88,5 +89,6 @@ for path in folder_paths:
             # Define the destination path for each file
             destination_path = out_path / f"{sample_id}_{file.name}"
             print(f"Copying {file} to {destination_path}")
-            #shutil.copy2(str(file), str(destination_path))
-            print(f"All selected files from {sample_id} have been copied to {destination_path}")
+            shutil.copy2(str(file), str(destination_path))
+    
+    print(f"All selected files from {sample_id} have been copied to {destination_path}")
