@@ -5,12 +5,22 @@ from PIL import Image
 import shutil
 from utils import get_avg_pixel_value
 
+"""
+Written by: Ingvild Bjerke
+Last modified: 1/27/2026
+
+Purpose: Filter chunks that are mostly black. 
+The script will create a folder called filtered_chunks in the parent folder containing all chunk subfolders.
+Option to simultaneously get the corresponding atlas chunks for your filtered chunks.
+
+"""
 
 ##################
 # USER PARAMETERS
 
 # Define the path to your chunked images
-data_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\Iba1_model\training_sections\chunked_images\\")
+# The path should be to the PARENT folder where subfolders contain chunks from different images.
+data_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\Iba1_model\2_validation_images\chunked_images_256by256\\")
 
 # Define a pixel value threshold. Images with an average intensity below this threshold will be filtered out.
 pixel_val_threshold = 10
@@ -65,7 +75,9 @@ for image_chunk_path in image_chunk_paths:
 
             if atlas_chunks_included:
                 shutil.copy2(atlas_chunk_path, atlas_out_path / atlas_chunk_path.name)
-    
-    print("Finished copying filtered chunks")
+        
+    print(f"Finished copying filtered chunks for {chunk_path}")
+
+
 
             
