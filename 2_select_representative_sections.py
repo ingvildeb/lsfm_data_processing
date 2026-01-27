@@ -41,6 +41,14 @@ out_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\1_training_data\mode
 make_zstacks = False
 z_stack_number = 5 
 
+## Advanced options
+flag_custom_format = True
+
+# Give the number of underscores that precedes the sample id in the name of the parent folder
+# For example, if the folder name is 20251222_12_07_48_EH_100672_F_P14_Kcnd3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE,
+# where 100672 is the sample ID, the number of underscores_to_id is 5
+underscores_to_id = 5
+
 ##################
 # MAIN CODE
 
