@@ -3,15 +3,25 @@ import shutil
 import random
 import math
 
+"""
+Written by: Ingvild Bjerke
+Last modified: 1/27/2026
+
+Purpose: Select a set of random chunks for cellpose training, validation or test sets.
+Use this option if you do NOT have atlas chunks and just want a random selection.
+
+If you made atlas chunks in the previous steps, use script 5b_select_representative_chunks.py to get a representative subset of different brain regions.
+
+"""
 
 
 # USER PARAMETERS
 
 # Give the path to your filtered image chunks
-chunk_dir = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\training_sections\chunked_images\filtered_image_chunks")
+chunk_dir = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\test_256chunks\filtered_image_chunks")
 
 # Give the path where you want the selected chunks to be saved
-out_dir = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\manual_and_human-in-the-loop\selected_chunks")
+out_dir = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\test_256chunks\training_chunks")
 
 # Specify the number of chunks to select
 num_files_to_select = 100
