@@ -60,8 +60,10 @@ def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness, u
     output_dir.mkdir(parents=True, exist_ok=False)
 
     # List all TIFF files
-    tiff_files = sorted([f for f in input_dir.glob('*.tif')] + [f for f in input_dir.glob('*.tiff')])
+    tiff_files = sorted([f for f in input_dir.glob('*.tif*')])
     num_files = len(tiff_files)
+
+    print(f"Found {num_files} images")
 
     # Process each MIP section
     for start_slice in range(0, num_files, slices_per_mip):
@@ -72,7 +74,7 @@ def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness, u
         for i in range(start_slice, end_slice):
             img = cv2.imread(str(tiff_files[i]), cv2.IMREAD_UNCHANGED)
             slices.append(img)
-
+  
         # Compute the maximum intensity projection
         mip_img = np.max(np.stack(slices, axis=0), axis=0)
 
@@ -84,7 +86,6 @@ def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness, u
         # Save MIP image with plane identifiers
         mip_filename = f"MIP_{first_plane}_{last_plane}.tif"
         mip_path = output_dir / mip_filename
-        print(f"Saving MIP {mip_path}")
         cv2.imwrite(str(mip_path), mip_img)
 
 
