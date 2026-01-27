@@ -19,7 +19,7 @@ parent image.
 
 # Give the path to the files you would like to chunk
 # The path can be to raw images or atlas slices
-file_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\Iba1_model\2_validation_images\\")
+file_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\1_training_data\model_256by256_val\\")
 
 # Define the chunk size. 
 # NB: The network expects a chunk size of 256. It is not recommended to use chunks below this size for training,
@@ -32,10 +32,11 @@ chunk_size = 256
 # MAIN CODE, do not edit
 
 # Glob for TIFF files using pathlib
-files = file_path.glob("*.tif") 
+files = file_path.glob("*.tif*") 
 
 # Process each file
 for file in files:
+    print(f"Chunking image {file}...")
     
     img = tifffile.TiffFile(file).asarray()
     shape = img.shape
