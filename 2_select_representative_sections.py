@@ -4,70 +4,113 @@ import shutil
 from pathlib import Path
 from utils import tifs_to_zstack
 
+"""
+Written by: Ingvild Bjerke
+Last modified: 1/27/2026
+
+Purpose: Selecting representative samples from a folder of LSFM tif files.
+Samples will be selected to be evenly spaced, with a small amount of shuffling between brains to avoid sampling similar levels from all brains.
+I recommend "oversampling" a bit (e.g. if you want 5 sections in total, set sample_size to 7), and manually curate the selection afterwards; this increases
+the likelihood of also getting some very dorsal or very ventral sections.
+
+"""
+
 ##################
 # USER PARAMETERS
 
 ## Specify the paths (any number of paths) to LSFM data 
-folder_paths = [Path(r"Z:\LSFM\2025\2025_11\2025_11_06\20251106_10_11_26_NB_100477_M_P58_Fbn1_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_MIP20um_min0_max99.9"),
-                Path(r"Z:\LSFM\2025\2025_11\2025_11_06\20251106_12_45_32_NB_100582_F_P58_Ube3a_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_MIP20um_min0_max99.9")
-                ]
+## The path needs to be the SUBFOLDER where tifs are placed, not just the parent folder
+folder_paths = [
+    Path(r"Z:\LSFM\2025\2025_10\2025_10_08\20251008_18_03_51_NB_100356_F_P14_B6J_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_MIP20um_min0_max99.9"),
+    Path(r"Z:\LSFM\2025\2025_11\2025_11_05\20251105_13_01_02_NB_100640_F_P14_Grn_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_MIP20um_min0_max99.9"),
+    Path(r"Z:\LSFM\2025\2025_11\2025_11_10\20251110_19_19_16_NB_100434_F_P61_Shank3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_MIP20um_min0_max99.9"),
+    Path(r"Z:\LSFM\2025\2025_12\2025_12_19\20251219_10_45_56_NB_100642_M_P14_Grn_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_MIP20um_min0_max99.9"),
+    Path(r"Z:\LSFM\2025\2025_12\2025_12_22\20251222_12_07_48_EH_100672_F_P14_Kcnd3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_MIP20um_min0_max99.9"),
+]
 
 ## Specify the sample size (number of selected images per sample)
-sample_size = 3
+sample_size = 7
 
 ## Specify where you want your selected images to be saved
-out_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\test_256chunks\\")
+out_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\1_training_data\model_256by256_val\\")
 
 ## Z STACK OPTIONS
-#  Z stacks can be useful in training models for cells that have complex morphology, such as microglia or pericytes
+# Optional creation of z stack. If relevant, set to true and indicate the number of images you want in your stack.
+# If not, set make_zstacks to False
 
-# Set to False if you do not want z stacks
 make_zstacks = False
-
-# Specify the number of planes per z stack
 z_stack_number = 5 
 
 ##################
-
-# Main code, do not edit
+# MAIN CODE
 
 out_path.mkdir(exist_ok=True)
 
-# Adding 2 to sample size so first and last (likely black) images can be removed after sampling
+# Adding two to sample size so first and / or last (usually black) slices can be removed
 sample_size = sample_size + 2
 
 for path in folder_paths:
+
     folder_parent = path.parent.name
     sample_id = folder_parent.split("_")[5]
 
-    # Using pathlib to glob files
-    files = sorted(path.glob("*.tif"))
-
-    # Ensure at least sample_size items exist in selected_images
-    if len(files) < sample_size:
-        print("Not enough images to sample.")
+    # Load files
+    files = sorted(path.glob("*.tif*"))
+    n = len(files)
+    
+    if n == 0:
+        raise RuntimeError(f"Found no images in:\n{path}\n"
+                           "Did you give the MIP folder as input path?")
+    
+    print(f"Selecting sections from {sample_id}...")
+    
+    if n < sample_size:
+        print("Not enough images to sample. Selecting all sections.")
         regularly_spaced_samples = files
+
     else:
-        # Calculate the step size using integer indices correctly
-        step = len(files) // (sample_size - 1) if sample_size > 1 else len(files)
+        
+        # deterministic RNG per sample
+        seed = hash(sample_id) % 2**32
+        rng = np.random.default_rng(seed)
 
-        regularly_spaced_samples = []
+        # spacing
+        step = n // (sample_size - 1)
 
-        # Collect samples using computed step
-        for i in range(sample_size):
-            idx = min(i * step, len(files) - 1)  # Ensure indices are valid
-            regularly_spaced_samples.append(files[idx])
+        # bounded offset
+        offset = rng.integers(0, step)
+
+        # evenly spaced positions with offset
+        positions = offset + np.arange(sample_size) * step
+
+        # removing any out-of-bound positions
+        positions = positions[positions < n]
+
+        # permutation to break anatomical alignment
+        indices = rng.permutation(n)
+
+        regularly_spaced_samples = [
+            files[indices[p]] for p in positions
+        ]
 
     regularly_spaced_samples = sorted(regularly_spaced_samples)
 
-    del regularly_spaced_samples[0]
-    del regularly_spaced_samples[-1]
+    # drop first / last
+    if len(positions) - sample_size == 0: 
+        del regularly_spaced_samples[0]
+        del regularly_spaced_samples[-1]
+
+    elif len(positions) - sample_size == -1:
+        del regularly_spaced_samples[0]
+    
+    else:
+        continue
 
     # Copy each file from selected_files to the new directory
     if make_zstacks:
         
         for file in regularly_spaced_samples:
-            print(file)
+
             stacked_samples = []
 
             # Determine the index of the current sample
