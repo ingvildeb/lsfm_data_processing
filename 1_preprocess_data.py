@@ -5,37 +5,44 @@ import shutil
 from utils import create_mips_from_folder, normalize_image
 import json
 
+
+"""
+Written by: Ingvild Bjerke
+Last modified: 1/27/2026
+
+Purpose: Preprocess LSFM data for use in further analysis. The script allows for creation Maximum Intensity Projection (MIP) images and / or normalizing
+images to improve visibility of signal.
+
+The script can be used on one or more samples (listed in input_folders).
+
+The script expects channel folders to be named in the LifeCanvas format:
+Ex_488_Ch0_stitched for channel 0
+Ex_561_Ch1_stitched for channel 1
+Ex_640_Ch2_stitched for channel 2
+
+If your data do not follow this format, use flag_custom_format and related settings under advanced parameters.
+
+"""
+
 # USER PARAMETERS
 
 # Give your input folders 
-# (the path should be to the stitched folder of the channel to create MIPs for)
+# The path should be to the PARENT folder for the brain you want to create MIPs for
 # You can put as many as you'd like within the brackets, separated by comma
-input_folders = [Path(r"Z:\LSFM\2025\2025_10\2025_10_21\20251021_10_41_55_EH_IEB0130_M_P0_Aldh1_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_21\20251021_11_06_22_EH_IEB0132_M_P0_Aldh1_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_09\20251009_19_34_52_IEB_IEB0133_M_P4_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_07\20251007_18_51_33_IEB_IEB0134_M_P4_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_09\20251009_20_53_50_IEB_IEB0136_F_P4_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_07\20251007_20_01_06_IEB_IEB0137_M_P4_Aldh1_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_22\20251022_11_34_41_EH_IEB0138_M_P2_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_22\20251022_13_30_43_EH_IEB0139_M_P2_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_22\20251022_14_05_23_EH_IEB0140_F_P2_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_13\20251013_10_58_46_IEB_IEB0142_F_P4_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_23\20251023_10_08_22_EH_IEB0143_M_P4_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_09\20251009_14_07_07_IEB_IEB0144_F_P4_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_13\20251013_12_05_56_IEB_IEB0145_F_P4_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_23\20251023_10_41_47_EH_IEB0146_F_P4_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_23\20251023_11_48_35_EH_IEB0149_M_P8_Aldh1_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_24\20251024_14_11_14_EH_IEB0150_M_P4_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_13\20251013_14_20_35_IEB_IEB0151_F_P4_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_09\20251009_15_19_25_IEB_IEB0152_F_P4_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_24\20251024_14_46_29_EH_IEB0153_F_P4_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_23\20251023_12_41_35_EH_IEB0154_M_P6_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_13\20251013_15_32_10_IEB_IEB0155_F_P6_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_13\20251013_18_36_35_IEB_IEB0156_F_P6_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_13\20251013_20_05_23_IEB_IEB0157_F_P6_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_25\20251025_13_30_30_EH_IEB0158_M_P10_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
-                 Path(r"Z:\LSFM\2025\2025_10\2025_10_25\20251025_14_44_10_EH_IEB0159_F_P10_MOBP_LAS_561Bg_640Sytox_4x_5umstep_Destripe_DONE"),
+input_folders = [Path(r"Z:\LSFM\2025\2025_12\2025_12_18\20251218_11_02_46_NB_100179_F_P14_B6J_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_12\2025_12_18\20251218_13_18_09_NB_100451_M_P14_Kcnd3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_12\2025_12_18\20251218_16_45_25_NB_100639_F_P14_Grn_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_12\2025_12_18\20251218_19_09_23_NB_100641_M_P14_Grn_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_12\2025_12_19\20251219_10_45_56_NB_100642_M_P14_Grn_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_12\2025_12_19\20251219_13_29_48_NB_100643_M_P14_Grn_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_12\2025_12_19\20251219_16_40_25_EH_100644_M_P14_Grn_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_12\2025_12_22\20251222_12_07_48_EH_100672_F_P14_Kcnd3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_12\2025_12_22\20251222_15_18_21_EH_100682_M_P14_C3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_12\2025_12_23\20251223_12_52_05_EH_100671_F_P14_Kcnd3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
+                 Path(r"Z:\LSFM\2025\2025_12\2025_12_23\20251223_15_14_03_EH_100689_F_P14_C3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE")
+
                 ]
+#Path(r"Z:\LSFM\2025\2025_12\2025_12_19\20251219_20_13_26_EH_100670_F_P14_Kcnd3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
 
 # MIP parameters
 
@@ -52,7 +59,7 @@ do_normalization = True
 # Optionally (if doing normalization), adjust the min and max clipping values. 
 # These values work well for NeuN images.
 min_val = 0
-max_val = 99.9
+max_val = 99.99
 
 
 ## ADVANCED PARAMETERS, not relevant for most users
@@ -62,6 +69,16 @@ z_step_user = None
 
 # Flag if your files follow the old file / folder naming convention
 flag_old_format = False
+
+# Flag if your files follow a custom fle / folder naming convention than expected by the script (see description)
+flag_custom_format = False
+
+# Set your subfolder name manually. This needs to be the same for all input_folders.
+subfolder_name = ""
+
+# Set the number of underscores occurs before your section indices in your tif file names 
+# For example, if the file name is 609720_476140_000020_ch1.tif where 000020 represents the z level, set underscores_to_z_plane to 2
+underscores_to_z_plane = 1
 
 ## MAIN CODE
 
@@ -98,6 +115,10 @@ for folder in input_folders:
         underscores_to_z_plane = 0
         channel_wavelengths = {0:"00", 1:"01", 2:"02"}
         channel_folder = Path(folder / f"stitched_{channel_wavelengths.get(channel)}//")
+    
+    elif flag_custom_format:
+        underscores_to_z_plane = underscores_to_z_plane
+        channel_folder = Path(folder / subfolder_name)
                               
     else:
         underscores_to_z_plane = 2
@@ -144,6 +165,7 @@ for folder in input_folders:
             print("MIP creation and normalization set to False. Nothing to do here...")
 
     print(f"Finished creating MIPs for {(folder.name.split("_")[5])}")
+
 
 
 
