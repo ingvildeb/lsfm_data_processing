@@ -3,6 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import shutil
+import sys
+
+parent_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(parent_dir))
 from utils import get_avg_pixel_value
 
 """
@@ -20,10 +24,10 @@ Option to simultaneously get the corresponding atlas chunks for your filtered ch
 
 # Define the path to your chunked images
 # The path should be to the PARENT folder where subfolders contain chunks from different images.
-data_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\Iba1_model\2_validation_images\chunked_images_256by256\\")
+data_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\1_training_data\model_256by256_val\chunked_images_256by256\\")
 
 # Define a pixel value threshold. Images with an average intensity below this threshold will be filtered out.
-pixel_val_threshold = 10
+pixel_val_threshold = 50
 
 # Set to True if you also have atlas chunks
 atlas_chunks_included = False

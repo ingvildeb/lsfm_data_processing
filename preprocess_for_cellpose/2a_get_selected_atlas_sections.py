@@ -1,9 +1,12 @@
 import matplotlib.pyplot as plt
-from glob import glob
 from PIL import Image
 import numpy as np
 import cv2
 from pathlib import Path
+import sys
+
+parent_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(parent_dir))
 from utils import extract_atlas_plate
 
 # USER PARAMETERS

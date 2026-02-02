@@ -1,10 +1,9 @@
 import numpy as np
-from collections import defaultdict, Counter
+from collections import defaultdict
 from PIL import Image
 from pathlib import Path
-import matplotlib.pyplot as plt
 import shutil
-
+import random
 
 # USER PARAMETERS
 

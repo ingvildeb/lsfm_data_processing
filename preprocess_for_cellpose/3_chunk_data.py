@@ -1,6 +1,10 @@
 from pathlib import Path
-from utils import chunk_image, chunk_z_stack
 import tifffile
+import sys
+
+parent_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(parent_dir))
+from utils import chunk_image, chunk_z_stack
 
 """
 Written by: Ingvild Bjerke

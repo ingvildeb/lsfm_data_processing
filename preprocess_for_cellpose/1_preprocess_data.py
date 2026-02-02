@@ -1,10 +1,12 @@
 from pathlib import Path
 import cv2
-import numpy as np
 import shutil
-from utils import create_mips_from_folder, normalize_image
+import sys
 import json
 
+parent_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(parent_dir))
+from utils import create_mips_from_folder, normalize_image
 
 """
 Written by: Ingvild Bjerke
@@ -40,9 +42,7 @@ input_folders = [Path(r"Z:\LSFM\2025\2025_12\2025_12_18\20251218_11_02_46_NB_100
                  Path(r"Z:\LSFM\2025\2025_12\2025_12_22\20251222_15_18_21_EH_100682_M_P14_C3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
                  Path(r"Z:\LSFM\2025\2025_12\2025_12_23\20251223_12_52_05_EH_100671_F_P14_Kcnd3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
                  Path(r"Z:\LSFM\2025\2025_12\2025_12_23\20251223_15_14_03_EH_100689_F_P14_C3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE")
-
                 ]
-#Path(r"Z:\LSFM\2025\2025_12\2025_12_19\20251219_20_13_26_EH_100670_F_P14_Kcnd3_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE"),
 
 # MIP parameters
 
