@@ -1,0 +1,25 @@
+# ================================
+# CHUNK DATA
+# ================================
+
+# Chunk images for use with cellpose. 
+# Works with single-plane images, MIPs or z stacks. Also works for atlas section images (which can be created in step 2a).
+
+# Copy this file and rename to:
+# 3_chunk_data_local.toml
+# and edit values there.
+
+# -------- INPUT --------
+
+# Folder containing images to chunk (can be tif or tiff format)
+file_path = 'PATH/TO/IMAGE_FOLDER'
+
+# -------- CHUNK SETTINGS --------
+
+# Define the chunk size in pixels. 
+# NB: The network expects a chunk size of 256. It is not recommended to use chunks below this size for training,
+# as it can cause problems when applying the model to larger images.
+# Larger chunks (e.g. 512) could be useful for medium to very sparse signals, but if 256 works for your signal it 
+# is the safest option.
+
+chunk_size = 256

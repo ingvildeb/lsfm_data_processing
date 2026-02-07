@@ -1,0 +1,49 @@
+# ================================
+# LSFM DATA PREPROCESSING (MIP CREATION & NORMALIZATION)
+# ================================
+
+# Preprocess LSFM data for use in further analysis. 
+# The script allows for creation Maximum Intensity Projection (MIP) images and / or normalizing
+# images to improve visibility of signal.
+
+# The script can be used on one or more samples (listed in input_folders).
+
+# The script expects channel folders to be named in the LifeCanvas format:
+# Ex_488_Ch0_stitched for channel 0
+# Ex_561_Ch1_stitched for channel 1
+# Ex_640_Ch2_stitched for channel 2
+
+# If your data do not follow this format, use flag_custom_format and related settings under advanced parameters.
+
+# Copy this file, rename to:
+# 1_preprocess_data_config_local.toml
+# and edit values there.
+
+# -------- INPUT FOLDERS --------
+input_folders = [
+  'Z:/PATH/TO/SAMPLE_FOLDER',
+]
+
+# -------- MIP SETTINGS --------
+
+create_MIPs = true          # set to false to disable MIP creation
+mip_thickness = 20          # thickness in micrometers
+channel = 2                 # Following LifeCanves format: 0=488, 1=561, 2=640
+
+
+# -------- NORMALIZATION --------
+
+do_normalization = true     # set to false if you do not want normalization
+min_val = 0                 # percentile clip min
+max_val = 99.9              # percentile clip max
+
+
+# -------- ADVANCED --------
+
+z_step_user = 5             # set your z step if metadata.json is missing
+flag_old_format = false     # set to true for old LifeCanvas format
+
+# custom format options
+flag_custom_format = false  # set to true if your format is different than LifeCanvas new or old
+subfolder_name = ""         # give the subfolder name to your channel folder
+underscores_to_z_plane = 1  # indicate number of underscores before the z plane indicator for your file names

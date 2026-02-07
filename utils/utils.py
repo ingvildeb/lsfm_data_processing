@@ -132,7 +132,7 @@ def normalize_and_save(input_image_path, output_dir, min_max_params):
         print(f"Saved normalized image to {normalized_image_path}")
 
 
-def extract_atlas_plate(reg_volume, image, all_images_path, underscores_to_index):
+def extract_atlas_plate(reg_volume, image, all_images_path, underscores_to_index, file_number_increment):
 
     # Calculate total number of images
     all_images = list(all_images_path.glob("*.tif"))
@@ -148,11 +148,15 @@ def extract_atlas_plate(reg_volume, image, all_images_path, underscores_to_index
     # # the last number in the file name uses a 0-based indexing with an increment of 20
     name = image.stem
     number = int(name.split("_")[underscores_to_index])
-    image_index = (number / 20)
+    print(f"Number extracted is {number}")
+    image_index = (number / file_number_increment)
+    print(f"Image index is {image_index}")
 
     # find the corresponding z axis slice in the atlas volume, scaling by the axis ratio to get the right one
     atlas_index = int(np.round(image_index / axis_ratio))
+    print(f"Atlas index is {atlas_index}")
     atlas_slice = data[:, atlas_index, :]
+    
 
     # make the image into an array and get the width and height for scaling purposes
     image_slice = np.array(Image.open(image))
@@ -168,6 +172,23 @@ def extract_atlas_plate(reg_volume, image, all_images_path, underscores_to_index
     resized_atlas_slice_16bit = resized_atlas_slice.astype(np.uint16)
 
     return name, resized_atlas_slice_16bit
+
+def relabel_sequential_for_preview(label_slice):
+    """
+    Remap unique labels to sequential integers (1..N).
+    Background (0) stays 0.
+    """
+    label_slice = label_slice.copy()
+
+    unique_labels = np.unique(label_slice)
+    unique_labels = unique_labels[unique_labels != 0]  # keep background as 0
+
+    relabeled = np.zeros_like(label_slice, dtype=np.int32)
+
+    for new_id, old_id in enumerate(unique_labels, start=1):
+        relabeled[label_slice == old_id] = new_id
+
+    return relabeled
 
 def tifs_to_zstack(file_list, out_dir, out_prefix):
 

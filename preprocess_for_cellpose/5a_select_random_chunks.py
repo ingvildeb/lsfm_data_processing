@@ -10,7 +10,8 @@ Last modified: 1/27/2026
 Purpose: Select a set of random chunks for cellpose training, validation or test sets.
 Use this option if you do NOT have atlas chunks and just want a random selection.
 
-If you made atlas chunks in the previous steps, use script 5b_select_representative_chunks.py to get a representative subset of different brain regions.
+If you made atlas chunks in the previous steps, you can instead use the script 5b_select_representative_chunks.py to get a 
+representative subset of different brain regions.
 
 """
 

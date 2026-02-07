@@ -1,0 +1,27 @@
+# ================================
+# FILTER BLACK CHUNKS
+# ================================
+# Filter chunks that are mostly black. 
+# The script will create a folder called filtered_chunks in the parent folder containing all chunk subfolders.
+# Option to simultaneously get the corresponding atlas chunks for your filtered chunks.
+
+# Copy this file and rename to:
+# 4_filter_black_chunks_local.toml
+# and edit values there.
+
+# -------- INPUT --------
+
+# Path to the parent folder containing chunked images.
+# Each subfolder should contain chunks from one parent image.
+data_path = 'PATH/TO/CHUNKED_IMAGE_FOLDER'
+
+# -------- FILTER SETTINGS --------
+
+# Pixel intensity threshold. Chunks with an average intensity below this value will be filtered out.
+pixel_val_threshold = 50.0
+
+# Optional display of selected chunks in the interactive window. Slower but can be informative for evaluating the threshold.
+display_selected_chunks = false
+
+# Set to true if to get corresponding atlas chunks for your filtered chunks.
+atlas_chunks_included = false

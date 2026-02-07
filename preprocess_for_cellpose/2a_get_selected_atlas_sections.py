@@ -1,47 +1,81 @@
+from pathlib import Path
+import sys
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
 import cv2
-from pathlib import Path
-import sys
 
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
-from utils import extract_atlas_plate
 
-# USER PARAMETERS
-# Give the path of your sample folder
-sample_path = Path(r"Z:\LSFM\2025\2025_03\2025_03_28\20250328_10_45_32_NB_CS0303_F_P428_C57_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\\")
+from utils.utils import extract_atlas_plate, relabel_sequential_for_preview
+from utils.io_helpers import (
+    load_script_config,
+    require_dir,
+    require_file,
+    require_subpath,
+)
 
-# Give the path to the images for which you want matching atlas plates. 
-# NB: Image names must not have been changed from their original naming format.
-selected_images_path = Path(r"Z:\Labmembers\Ingvild\Testing_CellPose\selected_images\MIPS\\")
+# -------------------------
+# CONFIG LOADING
+# -------------------------
 
+cfg = load_script_config(Path(__file__), "2a_get_selected_atlas_sections")
 
-# MAIN CODE, do not edit
+# -------------------------
+# CONFIG PARAMETERS
+# -------------------------
 
-out_path = selected_images_path / "atlas_slices"
-out_path.mkdir(parents=True, exist_ok=True)
+sample_paths = [require_dir(p, "Sample folder") for p in cfg["sample_paths"]]
+selected_images_path = require_dir(cfg["selected_images_path"], "Selected images folder")
 
-all_images_path = sample_path / "Ex_488_Ch0_stitched"
-subset_images = selected_images_path.glob("*.tif")
-reg_vol_path = sample_path / "_01_registration" / "ANTs_TransformedImage.nii.gz"
+underscores_to_index = cfg["underscores_to_index"]
+file_number_increment = cfg["file_number_increment"]
 
+# -------------------------
+# MAIN CODE
+# -------------------------
 
-for image in subset_images:
-    name, atlas_slice = extract_atlas_plate(reg_vol_path, image, all_images_path)
-    image_data = np.array(Image.open(image))
-    print(name)
+for sample_path in sample_paths:
+    
+    registration_dir = require_subpath(
+        sample_path,
+        "_01_registration",
+        "registration folder"
+    )
 
-    # plot the slice using matplotlib for visual validation
-    plt.imshow(atlas_slice.T, cmap="gray", origin="lower", vmin=np.min(image_data), vmax=np.max(image_data) * 0.1)
-    plt.imshow(image_data.T, cmap='gray', origin='lower', vmin=np.min(image_data), vmax=np.max(image_data) * 0.1, alpha=0.5)
-    plt.title(f"Horizontal Slice for {image.name}")
-    plt.axis('off')
-    plt.show()
+    reg_vol_path = require_file(
+        registration_dir / "ANTs_TransformedImage.nii.gz",
+        "registered atlas volume"
+    )
 
-    # save the atlas slice as a 16 bit tiff image
+    sample_id = sample_path.stem.split("_")[5]
+    print(f"Selecting atlas sections from sample {sample_id}")
+    print("-------------")
+    all_images_path = sample_path / "Ex_561_Ch1_stitched"
 
-    cv2.imwrite(rf'{out_path}\{name.split(".")[0]}_atlas_slice.tif', atlas_slice)
+    subset_images = sorted(selected_images_path.glob(f"{sample_id}*.tif"))
 
-    print("Image has been saved successfully.")
+    for image in subset_images:
+        print(image)
+        name, atlas_slice = extract_atlas_plate(reg_vol_path, image, all_images_path, underscores_to_index, file_number_increment)
+        image_data = np.array(Image.open(image))
+        print(name)
+
+        # plot the slice using matplotlib for visual validation
+        # Compute atlas boundaries for preview
+        atlas_preview = relabel_sequential_for_preview(atlas_slice)
+
+        plt.figure(figsize=(6, 6))
+        plt.imshow(atlas_preview.T, cmap="tab20", origin="lower", alpha=0.9)
+        plt.imshow(image_data.T, cmap="gray", origin="lower", alpha=0.3)
+        plt.title(f"Horizontal Slice for {image.name}")
+        plt.axis("off")
+        plt.show()
+        print("-------------")
+
+        # save the atlas slice as a 16 bit tiff image
+
+        cv2.imwrite(rf'{selected_images_path}\{name.split(".")[0]}_atlas_slice.tif', atlas_slice)
+
+        print("Image has been saved successfully.")

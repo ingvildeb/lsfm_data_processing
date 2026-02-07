@@ -7,80 +7,86 @@ import sys
 
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
-from utils import get_avg_pixel_value
 
-"""
-Written by: Ingvild Bjerke
-Last modified: 1/27/2026
+from utils.utils import get_avg_pixel_value
+from utils.io_helpers import load_script_config, normalize_user_path, require_dir
 
-Purpose: Filter chunks that are mostly black. 
-The script will create a folder called filtered_chunks in the parent folder containing all chunk subfolders.
-Option to simultaneously get the corresponding atlas chunks for your filtered chunks.
+# -------------------------
+# CONFIG LOADING
+# -------------------------
 
-"""
+cfg = load_script_config(Path(__file__), "4_filter_black_chunks")
 
-##################
-# USER PARAMETERS
+# -------------------------
+# CONFIG PARAMETERS
+# -------------------------
 
-# Define the path to your chunked images
-# The path should be to the PARENT folder where subfolders contain chunks from different images.
-data_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\1_training_data\model_256by256_val\chunked_images_256by256\\")
+data_path = require_dir(
+    normalize_user_path(cfg["data_path"]),
+    "Chunked image parent folder"
+)
 
-# Define a pixel value threshold. Images with an average intensity below this threshold will be filtered out.
-pixel_val_threshold = 50
+pixel_val_threshold = cfg["pixel_val_threshold"]
+display_selected_chunks = cfg["display_selected_chunks"]
+atlas_chunks_included = cfg["atlas_chunks_included"]
 
-# Set to True if you also have atlas chunks
-atlas_chunks_included = False
+# -------------------------
+# OUTPUT PATHS
+# -------------------------
 
+image_out_path = data_path.parent / "filtered_image_chunks"
+image_out_path.mkdir(parents=True, exist_ok=False)
 
-# MAIN CODE, do not edit
+if atlas_chunks_included:
+    atlas_out_path = data_path.parent / "filtered_atlas_chunks"
+    atlas_out_path.mkdir(parents=True, exist_ok=False)
+
+# -------------------------
+# MAIN CODE
+# -------------------------
 
 # Get input paths using pathlib
 # Define output paths and create directories if they don't exist
-image_chunk_paths = data_path.glob("*")
-image_out_path = data_path.parent / "filtered_image_chunks"
-image_out_path.mkdir(exist_ok=True)
-
-if atlas_chunks_included:
-    atlas_chunk_paths = data_path.glob("*atlas_slice")
-    atlas_out_path = data_path / "filtered_atlas_chunks"
-    atlas_out_path.mkdir(exist_ok=True)
+image_chunk_paths = sorted([p for p in data_path.glob("*") if not p.name.endswith("_atlas_slice")])
 
 # Process each image chunk
 for image_chunk_path in image_chunk_paths:
-    #print(image_chunk_path)
     # Glob for tif files using pathlib
     image_chunks = list(image_chunk_path.glob("*.tif"))
     
     for chunk_path in image_chunks:
-        #print(chunk_path)
+
         # Extract chunk name and number using pathlib
         chunk_name = chunk_path.stem.split("_chunk")[0] 
         chunk_number = chunk_path.stem.split("chunk_")[-1]
 
         # Calculate average pixel value
         average_pixel_value = get_avg_pixel_value(str(chunk_path))
-
-        # Build atlas chunk path using pathlib
-        if atlas_chunks_included:
-            atlas_chunk_path = chunk_path.parent.with_name(f"{image_chunk_path.name}_atlas_slice") / f"{chunk_name}_atlas_slice_chunk_{chunk_number}.tif"
-
+            
         if average_pixel_value > pixel_val_threshold:
             # Display the chunk image
             chunk_img = np.array(Image.open(chunk_path))
-            print(f"Displaying {chunk_path}, Shape: {chunk_img.shape}")
-            plt.imshow(chunk_img)
-            plt.axis('off')
-            plt.show()
-            plt.close()
 
+            if display_selected_chunks:
+                print(f"Displaying {chunk_path}, Shape: {chunk_img.shape}")
+                plt.imshow(chunk_img)
+                plt.axis('off')
+                plt.show()
+                plt.close()
 
             shutil.copy2(chunk_path, image_out_path / chunk_path.name) 
 
             if atlas_chunks_included:
-                shutil.copy2(atlas_chunk_path, atlas_out_path / atlas_chunk_path.name)
+
+                atlas_chunk_path = chunk_path.parent.with_name(f"{image_chunk_path.name}_atlas_slice") / f"{chunk_name}_atlas_slice_chunk_{chunk_number}.tif"
+
+                if atlas_chunk_path.exists():
+                    shutil.copy2(atlas_chunk_path, atlas_out_path / atlas_chunk_path.name)
+                else:
+                    print(f"Warning: atlas chunk missing for {chunk_path}")
         
-    print(f"Finished copying filtered chunks for {chunk_path}")
+    print(f"Finished copying filtered chunks for {image_chunk_path.name}")
+    
 
 
 

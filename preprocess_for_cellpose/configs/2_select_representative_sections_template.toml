@@ -1,0 +1,30 @@
+# ================================
+# LSFM SAMPLE SELECTION AND Z STACK GENERATION
+# ================================
+
+# Select representative samples from a folder of LSFM tif files.
+# Samples will be selected to be evenly spaced, with a small amount of shuffling between brains to avoid sampling similar levels from all brains.
+# I recommend "oversampling" a bit (e.g. if you want 5 sections in total, set sample_size to 7), and manually curate the selection afterwards; this increases
+# the likelihood of also getting some very dorsal or very ventral sections.
+
+# Copy this file, rename to:
+# 2_select_samples_config_local.toml
+# and edit values there.
+
+# -------- INPUT FOLDERS --------
+# Provide the subfolders containing MIP images from which to select
+folder_paths = [
+  'Z:/PATH/TO/SAMPLE_FOLDER',
+]
+
+# -------- SAMPLE SETTINGS --------
+sample_size = 7               # number of images per sample to select
+make_zstacks = false          # create z-stacks (true/false)
+z_stack_number = 5            # number of images per z-stack if enabled
+
+# -------- OUTPUT --------
+out_path = 'Z:/PATH/TO/OUTPUT_FOLDER'
+
+# -------- ADVANCED --------
+flag_custom_format = true     # true if folder format is custom
+underscores_to_id = 5         # underscores before sample ID in folder name, if custom format

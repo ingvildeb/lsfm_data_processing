@@ -1,0 +1,34 @@
+# ================================
+# GET SELECTED ATLAS SECTIONS
+# ================================
+
+# Extract atlas sections corresponding to your selected sections (from step 2)
+# Requires that ANTs registration has been performed
+
+# Copy this file and rename to:
+# 2a_get_selected_atlas_sections_local.toml
+# and edit values there.
+
+# -------- SAMPLE PATHS --------
+# Paths to the LSFM sample folders
+# Folders must have a registration subfolder named _01_registration,
+# with a file called ANTs_TransformedImage.nii.gz being the warped label volume
+
+sample_paths = [
+  'Z:/PATH/TO/SAMPLE1',
+  'Z:/PATH/TO/SAMPLE2',
+]
+
+# -------- SELECTED IMAGES --------
+# Path to the folder containing images selected using 2_select_representative_sections
+selected_images_path = 'Z:/PATH/TO/SELECTED_IMAGES'
+
+# -------- ADVANCED SETTINGS --------
+
+# increment in your file number indices. 
+# Used to be 20 for older LifeCanvas data but recently changed to 10. Check your original (non-MIP) images to be sure.
+file_number_increment = 10
+
+
+# number of underscores before index in filename. Should be 2 if you used 2_select_representative_sections for selection.
+underscores_to_index = 2   

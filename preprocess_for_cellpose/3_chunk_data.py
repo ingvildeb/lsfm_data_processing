@@ -4,39 +4,54 @@ import sys
 
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
-from utils import chunk_image, chunk_z_stack
 
-"""
-Written by: Ingvild Bjerke
-Last modified: 1/27/2026
+from utils.utils import chunk_image, chunk_z_stack
+from utils.io_helpers import (
+    load_script_config,
+    normalize_user_path,
+    require_dir,
+)
 
-Purpose: Chunk images for use with cellpose. 
-The script takes a folder of images and creates chunks of a user-defined size.
-Works with single-plane images, MIPs or z stacks. Also works for atlas section images (which can be created in step 2a).
+# -------------------------
+# CONFIG LOADING
+# -------------------------
 
-Chunk images will be saved to individual folders for each parent image and named after the row and column indices from the
-parent image.
+cfg = load_script_config(
+    Path(__file__),
+    "3_chunk_data"
+)
 
-"""
+# -------------------------
+# CONFIG PARAMETERS
+# -------------------------
 
-# USER PARAMETERS
+file_path = require_dir(
+    normalize_user_path(cfg["file_path"]),
+    "Input image folder"
+)
 
-# Give the path to the files you would like to chunk
-# The path can be to raw images or atlas slices
-file_path = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\1_training_data\model_256by256_val\\")
+chunk_size = cfg["chunk_size"]
 
-# Define the chunk size. 
-# NB: The network expects a chunk size of 256. It is not recommended to use chunks below this size for training,
-# as it can cause problems when applying the model to larger images.
-# Larger chunks (e.g. 512) could be useful for medium to very sparse signals, but if 256 works for your signal it 
-# is the safest option.
-chunk_size = 256
+# -------------------------
+# OUTPUT SETUP
+# -------------------------
 
+chunk_root = file_path / f"chunked_images_{chunk_size}by{chunk_size}"
+chunk_root.mkdir(exist_ok=True)
 
-# MAIN CODE, do not edit
+# -------------------------
+# MAIN
+# -------------------------
 
 # Glob for TIFF files using pathlib
-files = file_path.glob("*.tif*") 
+files = sorted(file_path.glob("*.tif*"))
+
+if not files:
+    raise RuntimeError(
+        f"No TIFF files found in:\n{file_path}"
+    )
+
+print(f"Found {len(files)} images to chunk.\n")
 
 # Process each file
 for file in files:
@@ -49,7 +64,7 @@ for file in files:
     folder_name = file.stem
 
     # Define the output directory for chunked images
-    image_outdir = file_path / f"chunked_images_{chunk_size}by{chunk_size}" / folder_name
+    image_outdir = chunk_root / folder_name
 
     # Create the output directory if it doesn't exist
     image_outdir.mkdir(parents=True, exist_ok=True)
@@ -61,3 +76,9 @@ for file in files:
     elif len(shape) == 3:
         chunk_z_stack(file, image_outdir, chunk_size=chunk_size)
     
+    else:
+        raise RuntimeError(
+            f"Unsupported image shape {shape} for file:\n{file}"
+        )
+
+print("\nChunking complete.")

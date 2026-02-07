@@ -5,17 +5,27 @@ from pathlib import Path
 import shutil
 import random
 
+"""
+Written by: Ingvild Bjerke
+Last modified: 2/4/2026
+
+Purpose: Select a representative subset of chunk images for training, validating or testing a Cellpose model.
+You need to have corresponding atlas chunks for your chunk images to use this. If you do not have that, use the
+5a_select_random_chunks instead.
+
+"""
+
 # USER PARAMETERS
 
 # Give the path to your filtered image chunks
-chunk_dir = Path(r"Z:\Labmembers\Ingvild\Testing_CellPose\test_data\Ex_488_Ch0_stitched_selected_data\chunked_images\\")
+chunk_dir = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\1_training_data\model_256by256_val\filtered_image_chunks\\")
 
 # Give the path to your filtered atlas chunks
-atlas_chunk_dir = Path(r"Z:\Labmembers\Ingvild\Testing_CellPose\test_data\Ex_488_Ch0_stitched_selected_data\chunked_images\filtered_atlas_chunks\\")
+atlas_chunk_dir = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\1_training_data\model_256by256_val\filtered_atlas_chunks\\")
 atlas_chunks = list(atlas_chunk_dir.glob("*.tif"))
 
 # Specify the number of chunks to select
-number_of_chunks = 100
+number_of_chunks = 50
 
 # MAIN CODE, do not edit
 

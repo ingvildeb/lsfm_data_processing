@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 from pathlib import Path
 from PIL import Image
-from utils import normalize_image, normalize_and_save
+from utils.utils import normalize_image, normalize_and_save
 
 
 
