@@ -39,7 +39,7 @@ make_zstacks = cfg["make_zstacks"]
 z_stack_number = cfg["z_stack_number"]
 
 flag_custom_format = cfg["flag_custom_format"]
-underscores_to_id = cfg["underscores_to_id"]
+underscores_to_id_cfg = cfg["underscores_to_id"]
 
 # validate output parent exists, then create output folder
 out_path.mkdir(exist_ok=True, parents=True)
@@ -63,6 +63,11 @@ def stable_seed(text: str) -> int:
 for path in folder_paths:
 
     folder_parent = path.parent.name
+
+    if flag_custom_format:
+        underscores_to_id = underscores_to_id_cfg
+    else:
+        underscores_to_id = 5
     parts = folder_parent.split("_")
 
     if underscores_to_id >= len(parts):

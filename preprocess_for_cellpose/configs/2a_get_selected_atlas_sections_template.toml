@@ -31,4 +31,18 @@ file_number_increment = 10
 
 
 # number of underscores before index in filename. Should be 2 if you used 2_select_representative_sections for selection.
-underscores_to_index = 2   
+underscores_to_index = 2
+
+# set true if your sample folder naming differs from default and
+# you need a custom underscore index for sample ID extraction
+flag_custom_format = false
+
+# number of underscores before sample ID token in sample folder name
+# only used when flag_custom_format = true
+underscores_to_id = 5
+
+# subfolder containing full stitched images used for index lookup
+all_images_subfolder = "Ex_561_Ch1_stitched"
+
+# show matplotlib overlay previews while processing
+show_preview = true
