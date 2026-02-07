@@ -86,7 +86,7 @@ for folder in input_folders:
         channel_folder = Path(folder / f"stitched_{channel_wavelengths.get(channel)}//")
     
     elif flag_custom_format:
-        underscores_to_z_plane = underscores_to_z_plane
+        underscores_to_z_plane = underscores_to_z_plane_cfg
         channel_folder = Path(folder / subfolder_name)
                               
     else:
@@ -134,7 +134,6 @@ for folder in input_folders:
             print("MIP creation and normalization set to False. Nothing to do here...")
 
     print(f"Finished creating MIPs for {(folder.name.split('_')[5])}")
-
 
 
 

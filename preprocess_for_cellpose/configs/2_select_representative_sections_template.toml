@@ -8,7 +8,7 @@
 # the likelihood of also getting some very dorsal or very ventral sections.
 
 # Copy this file, rename to:
-# 2_select_samples_config_local.toml
+# 2_select_representative_sections_local.toml
 # and edit values there.
 
 # -------- INPUT FOLDERS --------
@@ -27,4 +27,4 @@ out_path = 'Z:/PATH/TO/OUTPUT_FOLDER'
 
 # -------- ADVANCED --------
 flag_custom_format = true     # true if folder format is custom
-underscores_to_id = 5         # underscores before sample ID in folder name, if custom format
+underscores_to_id = 5         # underscores before sample ID in folder name (only used if flag_custom_format=true)
