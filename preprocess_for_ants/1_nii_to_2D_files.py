@@ -2,28 +2,43 @@ import nibabel as nib
 import numpy as np
 from PIL import Image
 from pathlib import Path
+import sys
 
-"""
-Written by: Ingvild Bjerke
-Last modified: 2/2/2026
+parent_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(parent_dir))
 
-Purpose: Create 2D coronal slices from a 20 um downsampled LSFM volume. The slices can be used to train
-a machine learning classifier to mask the brain.
+from utils.io_helpers import load_script_config, normalize_user_path, require_file
 
-"""
-#### USER SETTINGS
-# Give the path to your raw nifti volume file
-nifti_file = Path(r"Z:\LSFM\2025\2025_12\2025_12_12\20251212_15_40_45_EH_EH0032_F_P10_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE\ch2_iso20um.nii.gz")
+# -------------------------
+# CONFIG LOADING
+# -------------------------
 
+cfg = load_script_config(
+    Path(__file__),
+    "1_nii_to_2D_files"
+)
 
+# -------------------------
+# CONFIG PARAMETERS
+# -------------------------
 
-#### MAIN CODE, do not edit
+nifti_file = require_file(
+    normalize_user_path(cfg["nifti_file"]),
+    "Input NIfTI volume"
+)
+
+output_folder_name = cfg["output_folder_name"]
+output_prefix = cfg["output_prefix"]
+
+# -------------------------
+# MAIN CODE
+# -------------------------
 
 nii = nib.load(nifti_file)
 data = nii.get_fdata()
 
 # Create output directory
-output_dir = nifti_file.parent / "2D_for_mask_generation"
+output_dir = nifti_file.parent / output_folder_name
 output_dir.mkdir(exist_ok=True)
 
 # Loop through slices
@@ -44,7 +59,7 @@ for i in range(data.shape[1]):
     img = Image.fromarray(slice_data_normalized)
 
     # Pathlib-based save
-    out_path = output_dir / f"slice_{i:03d}.tif"
+    out_path = output_dir / f"{output_prefix}_{i:03d}.tif"
     img.save(out_path)
 
 print(f"Successfully saved TIFF files to {output_dir}")

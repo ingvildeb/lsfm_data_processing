@@ -1,0 +1,22 @@
+# ================================
+# DILATE, FILL, AND SMOOTH BINARY MASK
+# ================================
+
+# Post-process a binary segmentation mask by:
+# 1) dilation,
+# 2) hole filling,
+# 3) gaussian smoothing + thresholding back to binary.
+# This is useful to close small holes and preserve edges before applying the mask.
+
+# Copy this file, rename to:
+# 3_dilate_and_fill_mask_local.toml
+# and edit values there.
+
+# -------- INPUT --------
+segmentation_volume = "Z:/LSFM/your_experiment/2D_for_mask_generation/segmented_volume.nii.gz"
+
+# -------- PROCESSING / OUTPUT --------
+output_name = "segmented_volume_dilated.nii.gz"
+dilation_structure_size = [3, 3, 3]
+gaussian_sigma = 3
+threshold = 0.5

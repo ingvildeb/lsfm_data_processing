@@ -2,62 +2,89 @@ import numpy as np
 import nibabel as nib
 from PIL import Image
 from pathlib import Path
+import sys
 
-"""
-Written by: Ingvild Bjerke
-Last modified: 2/2/2026
+parent_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(parent_dir))
 
-Purpose: Create a 3D volume from Simple Segmentation files generated in ilastik.
-The script is intended to be used after using 1_nii_to_2D_files and ilastik to create and segment 2D slices.
+from utils.io_helpers import load_script_config, normalize_user_path, require_dir
 
-"""
-#### USER SETTINGS
-# Give the path to the folder containing your segmented images
-segmentation_dir = Path(r"Z:\LSFM\2025\2025_12\2025_12_12\20251212_15_40_45_EH_EH0032_F_P10_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE\2D_for_mask_generation")
+# -------------------------
+# CONFIG LOADING
+# -------------------------
 
+cfg = load_script_config(
+    Path(__file__),
+    "2_2D_to_nii_mask"
+)
 
+# -------------------------
+# CONFIG PARAMETERS
+# -------------------------
 
-#### MAIN CODE, do not edit
+segmentation_dir = require_dir(
+    normalize_user_path(cfg["segmentation_dir"]),
+    "Segmentation folder"
+)
 
-output_nifti_file = segmentation_dir / 'segmented_volume.nii.gz'
-slice_indices = []
+output_nifti_name = cfg["output_nifti_name"]
+slice_prefix = cfg["slice_prefix"]
+segmentation_suffix = cfg["segmentation_suffix"]
+foreground_label = cfg["foreground_label"]
+
+# -------------------------
+# MAIN CODE
+# -------------------------
+
+output_nifti_file = segmentation_dir / output_nifti_name
+slice_indices: list[int] = []
 
 # Collect all slice indices from the segmented images
-for png_file in segmentation_dir.glob('*_Simple Segmentation.png'):
-    index_str = png_file.stem.split("_")[1]
+pattern = f"*{segmentation_suffix}"
+for seg_file in segmentation_dir.glob(pattern):
+    name_wo_suffix = seg_file.name.removesuffix(segmentation_suffix)
+    if not name_wo_suffix.startswith(f"{slice_prefix}_"):
+        continue
+    index_str = name_wo_suffix.split("_")[1]
     slice_indices.append(int(index_str))
 
 # Sort indices to ensure they are in correct order
 slice_indices.sort()
+
+if not slice_indices:
+    raise RuntimeError(
+        f"No segmented files matching '*{segmentation_suffix}' found in:\n{segmentation_dir}"
+    )
 
 # Initialize an empty list to hold the slices
 slices = []
 
 # Load each segmented image into the array
 for i in slice_indices:
-    slice_filename = f'slice_{i:03d}_Simple Segmentation.png'
+    slice_filename = f"{slice_prefix}_{i:03d}{segmentation_suffix}"
     slice_path = segmentation_dir / slice_filename
-    
+
     if slice_path.exists():
-        # Read the image
         img = Image.open(slice_path)
         img_array = np.array(img)
 
-        # Apply the value mapping
-        # Set 1 where img_array is 1, and 0 where img_array is 2
-        made_binary = np.where(img_array == 1, 1, 0)  # Sets pixels to 1 where original value was 1 or else 0
+        # Set 1 where label matches foreground_label, else 0
+        made_binary = np.where(img_array == foreground_label, 1, 0)
         slices.append(made_binary)
-        
+
     else:
         print(f"Warning: {slice_path} does not exist.")
 
+if not slices:
+    raise RuntimeError(
+        "No slices were loaded. Please confirm segmentation file names and config values."
+    )
+
 # Stack the slices into a 3D NumPy array
-volume = np.stack(slices, axis=1).astype('uint8')
+volume = np.stack(slices, axis=1).astype("uint8")
 
-# Create a NIfTI image
-nifti_image = nib.Nifti1Image(volume, np.eye(4))  # Identity matrix for affine
-
-# Save to a NIfTI file
+# Create and save NIfTI image
+nifti_image = nib.Nifti1Image(volume, np.eye(4))
 nib.save(nifti_image, output_nifti_file)
 
 print(f"Successfully saved the segmented volume to {output_nifti_file}")

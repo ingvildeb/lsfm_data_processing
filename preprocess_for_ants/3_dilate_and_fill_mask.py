@@ -2,41 +2,56 @@ import nibabel as nib
 import numpy as np
 from scipy.ndimage import binary_dilation, gaussian_filter, binary_fill_holes
 from pathlib import Path
+import sys
 
-"""
-Written by: Ingvild Bjerke
-Last modified: 2/2/2026
+parent_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(parent_dir))
 
-Purpose: Dilate and fill a binary brain mask to get rid of any small holes in the mask are filled
-and ensure no edges are removed.
+from utils.io_helpers import load_script_config, normalize_user_path, require_file
 
-"""
-#### USER SETTINGS
-# Give the path to your segmentation file
-segmentation_volume = Path(rf"Z:\LSFM\2025\2025_12\2025_12_12\20251212_15_40_45_EH_EH0032_F_P10_MOBP_LAS_488GFP_561Bg_640Sytox_4x_5umstep_Destripe_DONE\2D_for_mask_generation\segmented_volume.nii.gz")
+# -------------------------
+# CONFIG LOADING
+# -------------------------
 
+cfg = load_script_config(
+    Path(__file__),
+    "3_dilate_and_fill_mask"
+)
 
-##### MAIN CODE, do not edit 
-# Load the existing mask
+# -------------------------
+# CONFIG PARAMETERS
+# -------------------------
+
+segmentation_volume = require_file(
+    normalize_user_path(cfg["segmentation_volume"]),
+    "Input segmentation volume"
+)
+
+output_name = cfg["output_name"]
+dilation_structure_size = cfg["dilation_structure_size"]
+gaussian_sigma = cfg["gaussian_sigma"]
+threshold = cfg["threshold"]
+
+# -------------------------
+# MAIN CODE
+# -------------------------
+
 raw_mask = nib.load(segmentation_volume)
-
 data = raw_mask.get_fdata()
 
 # Expand the mask using binary dilation
-# You can define the structure to control the dilation
-dilated_mask = binary_dilation(data, structure=np.ones((3, 3, 3)))
+structure = np.ones(tuple(dilation_structure_size))
+dilated_mask = binary_dilation(data, structure=structure)
 
 # Fill holes in the dilated mask
 filled_mask = binary_fill_holes(dilated_mask)
 
-# Smoothen the filled mask using Gaussian filtering
-smoothed_mask = gaussian_filter(filled_mask.astype(float), sigma=3)  # Adjust sigma to control smoothing
+# Smooth and threshold back to binary
+smoothed_mask = gaussian_filter(filled_mask.astype(float), sigma=gaussian_sigma)
+thresholded_mask = (smoothed_mask > threshold).astype(float)
 
-# Threshold the smoothed mask to create a binary mask again
-thresholded_mask = (smoothed_mask > 0.5).astype(float)  # Using 0.5 as threshold for binary conversion
-
-# Create a new NIfTI image with the smoothed and expanded mask
+# Create and save a new NIfTI image
 expanded_mask = nib.Nifti1Image(thresholded_mask, raw_mask.affine, raw_mask.header)
+nib.save(expanded_mask, segmentation_volume.parent / output_name)
 
-# Save the expanded and smoothed mask
-nib.save(expanded_mask, segmentation_volume.parent / "segmented_volume_dilated.nii.gz")
+print(f"Saved dilated mask to {segmentation_volume.parent / output_name}")

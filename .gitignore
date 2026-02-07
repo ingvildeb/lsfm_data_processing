@@ -165,3 +165,8 @@ preprocess_for_cellpose/configs/3_chunk_data_local.toml
 preprocess_for_cellpose/configs/4_filter_black_chunks_local.toml
 preprocess_for_cellpose/configs/5a_select_random_chunks_local.toml
 preprocess_for_cellpose/configs/5b_select_representative_chunks_local.toml
+
+preprocess_for_ants/configs/1_nii_to_2D_files_local.toml
+preprocess_for_ants/configs/2_2D_to_nii_mask_local.toml
+preprocess_for_ants/configs/3_dilate_and_fill_mask_local.toml
+preprocess_for_ants/configs/4_apply_mask_local.toml
