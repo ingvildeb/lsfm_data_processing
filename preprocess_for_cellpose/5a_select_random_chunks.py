@@ -2,39 +2,46 @@ from pathlib import Path
 import shutil
 import random
 import math
+import sys
 
-"""
-Written by: Ingvild Bjerke
-Last modified: 1/27/2026
+parent_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(parent_dir))
 
-Purpose: Select a set of random chunks for cellpose training, validation or test sets.
-Use this option if you do NOT have atlas chunks and just want a random selection.
+from utils.io_helpers import load_script_config, normalize_user_path, require_dir
 
-If you made atlas chunks in the previous steps, you can instead use the script 5b_select_representative_chunks.py to get a 
-representative subset of different brain regions.
+# -------------------------
+# CONFIG LOADING
+# -------------------------
 
-"""
+cfg = load_script_config(Path(__file__), "5a_select_random_chunks")
 
+# -------------------------
+# CONFIG PARAMETERS
+# -------------------------
 
-# USER PARAMETERS
+chunk_dir = require_dir(
+    normalize_user_path(cfg["chunk_dir"]),
+    "Filtered image chunks folder"
+)
 
-# Give the path to your filtered image chunks
-chunk_dir = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\test_256chunks\filtered_image_chunks")
+out_dir = normalize_user_path(cfg["out_dir"])
+num_files_to_select = cfg["num_files_to_select"]
 
-# Give the path where you want the selected chunks to be saved
-out_dir = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\test_256chunks\training_chunks")
+# -------------------------
+# OUTPUT SETUP
+# -------------------------
 
-# Specify the number of chunks to select
-num_files_to_select = 100
+out_dir.mkdir(parents=True, exist_ok=True)
 
+# -------------------------
+# MAIN CODE
+# -------------------------
 
-# MAIN CODE, do not edit
-
-# Create the target directory if it doesn't exist
-out_dir.mkdir(exist_ok=True)
-
-# List all files in the source directory and sort them to maintain order
+# List all chunk files
 files = sorted(chunk_dir.glob("*"))
+
+if not files:
+    raise RuntimeError(f"No files found in chunk directory:\n{chunk_dir}")
 
 # Calculate the spacing required
 total_files = len(files)
@@ -63,4 +70,4 @@ for counter, file in enumerate(selected_files):
     shutil.copy2(file, destination_path)
     print(f"Copied: {file} as {destination_file_name}")
 
-print(f"Completed copying {num_files_to_select} files with unique prefixes.")
+print(f"Completed copying {num_files_to_select} files with randomized prefixes.")

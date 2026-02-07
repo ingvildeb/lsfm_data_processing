@@ -4,53 +4,82 @@ from PIL import Image
 from pathlib import Path
 import shutil
 import random
+import sys
+
+parent_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(parent_dir))
+
+from utils.io_helpers import load_script_config, normalize_user_path, require_dir
 
 """
-Written by: Ingvild Bjerke
-Last modified: 2/4/2026
-
-Purpose: Select a representative subset of chunk images for training, validating or testing a Cellpose model.
-You need to have corresponding atlas chunks for your chunk images to use this. If you do not have that, use the
-5a_select_random_chunks instead.
-
+Purpose: Select a representative subset of chunk images using atlas chunks
+to maximize anatomical region coverage.
 """
 
-# USER PARAMETERS
+# -------------------------
+# CONFIG LOADING
+# -------------------------
 
-# Give the path to your filtered image chunks
-chunk_dir = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\1_training_data\model_256by256_val\filtered_image_chunks\\")
+cfg = load_script_config(Path(__file__), "5b_select_representative_chunks")
 
-# Give the path to your filtered atlas chunks
-atlas_chunk_dir = Path(r"Z:\Labmembers\Ingvild\Cellpose\NeuN_model\1_training_data\model_256by256_val\filtered_atlas_chunks\\")
-atlas_chunks = list(atlas_chunk_dir.glob("*.tif"))
+# -------------------------
+# CONFIG PARAMETERS
+# -------------------------
 
-# Specify the number of chunks to select
-number_of_chunks = 50
+chunk_dir = require_dir(
+    normalize_user_path(cfg["chunk_dir"]),
+    "Filtered image chunks folder"
+)
 
-# MAIN CODE, do not edit
+atlas_chunk_dir = require_dir(
+    normalize_user_path(cfg["atlas_chunk_dir"]),
+    "Filtered atlas chunks folder"
+)
 
-# Path setup
-base_path = Path(__file__).parent.resolve()
-atlas_ids = base_path / "files" / "CCFv3_OntologyStructure_u16.xlsx"
+number_of_chunks = cfg["number_of_chunks"]
 
-region_counts = defaultdict(set)  # Maps region IDs to sets of image indices
-image_region_ids = []  # List to keep track of regions in each image
+# -------------------------
+# INPUT FILES
+# -------------------------
 
-# Load atlas chunks and gather statistics on pixel values (region IDs)
+atlas_chunks = sorted(atlas_chunk_dir.glob("*.tif"))
+
+if not atlas_chunks:
+    raise RuntimeError(
+        f"No atlas chunk TIFF files found in:\n{atlas_chunk_dir}"
+    )
+
+print(f"Found {len(atlas_chunks)} atlas chunks.")
+
+# -------------------------
+# REGION COVERAGE ANALYSIS
+# -------------------------
+
+region_counts = defaultdict(set)
+image_region_ids = []
+
 for idx, image_path in enumerate(atlas_chunks):
     image_data = np.array(Image.open(image_path))
-    
     regions = set(np.unique(image_data))
+
     image_region_ids.append(regions)
 
     for region in regions:
         region_counts[region].add(idx)
 
-# Select images to maximize region coverage
+print(f"Found {len(region_counts)} unique atlas region IDs.")
+
+# -------------------------
+# GREEDY COVERAGE SELECTION
+# -------------------------
+
 selected_images = set()
 covered_regions = set()
 
-while len(selected_images) < number_of_chunks and len(covered_regions) < len(region_counts):
+while (
+    len(selected_images) < number_of_chunks
+    and len(covered_regions) < len(region_counts)
+):
     best_image = None
     max_new_regions = 0
 
@@ -59,38 +88,69 @@ while len(selected_images) < number_of_chunks and len(covered_regions) < len(reg
             continue
 
         new_regions = regions - covered_regions
+
         if len(new_regions) > max_new_regions:
             max_new_regions = len(new_regions)
             best_image = idx
 
-    if best_image is not None:
-        selected_images.add(best_image)
-        covered_regions.update(image_region_ids[best_image])
+    if best_image is None:
+        break
 
-# Random selection of remaining images
+    selected_images.add(best_image)
+    covered_regions.update(image_region_ids[best_image])
+
+print(f"Coverage-based selected: {len(selected_images)}")
+
+# -------------------------
+# RANDOM FILL (IF NEEDED)
+# -------------------------
+
+random.seed(12345)
+
 available_images = set(range(len(image_region_ids))) - selected_images
-while len(selected_images) < number_of_chunks:
-    random_image = random.choice(list(available_images))
-    selected_images.add(random_image)
-    available_images.remove(random_image)
 
-# Output selected image paths
-selected_atlas_chunks = [atlas_chunks[idx] for idx in selected_images]
+while len(selected_images) < number_of_chunks and available_images:
+    idx = random.choice(sorted(available_images))
+    selected_images.add(idx)
+    available_images.remove(idx)
 
-# Define output paths and create directories if they don't exist
-image_out_path = chunk_dir / "selected_image_chunks"
-atlas_out_path = chunk_dir / "selected_atlas_chunks"
+print(f"Total selected after fill: {len(selected_images)}")
 
-image_out_path.mkdir(exist_ok=True)
-atlas_out_path.mkdir(exist_ok=True)
+selected_atlas_chunks = [atlas_chunks[idx] for idx in sorted(selected_images)]
+
+# -------------------------
+# OUTPUT PATHS
+# -------------------------
+
+image_out_path = chunk_dir.parent / "selected_image_chunks"
+atlas_out_path = chunk_dir.parent / "selected_atlas_chunks"
+
+image_out_path.mkdir(parents=True, exist_ok=True)
+atlas_out_path.mkdir(parents=True, exist_ok=True)
+
+# -------------------------
+# COPY MATCHED PAIRS
+# -------------------------
+
+copied = 0
 
 for atlas_chunk in selected_atlas_chunks:
-    # Extract chunk name and number using pathlib
+
     chunk_name = atlas_chunk.stem.split("_atlas")[0]
     chunk_number = atlas_chunk.stem.split("chunk_")[-1]
-    corresponding_image_name = f"{chunk_name}_chunk_{chunk_number}.tif"
-    image_path = atlas_chunk.parent.parent / "filtered_image_chunks" / corresponding_image_name
 
-    # Copy files to out paths
+    corresponding_image_name = f"{chunk_name}_chunk_{chunk_number}.tif"
+    image_path = chunk_dir / corresponding_image_name
+
+    if not image_path.exists():
+        raise RuntimeError(
+            f"Missing corresponding image chunk:\n{image_path}"
+        )
+
     shutil.copy2(image_path, image_out_path / image_path.name)
     shutil.copy2(atlas_chunk, atlas_out_path / atlas_chunk.name)
+
+    copied += 1
+    print(f"Copied pair: {image_path.name}")
+
+print(f"\nFinished copying {copied} representative chunk pairs.")
