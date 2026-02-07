@@ -1,0 +1,23 @@
+# ================================
+# ILASTIK 2D SEGMENTATION TO 3D NIFTI MASK
+# ================================
+
+# Reconstruct a 3D binary mask volume from ilastik-exported 2D segmentation images.
+# Intended to run after creating coronal slices with 1_nii_to_2D_files.py.
+
+# Copy this file, rename to:
+# 2_2D_to_nii_mask_local.toml
+# and edit values there.
+
+# -------- INPUT --------
+# Folder containing ilastik segmentation outputs
+segmentation_dir = "Z:/LSFM/your_experiment/2D_for_mask_generation"
+
+# -------- FILE NAMING --------
+output_nifti_name = "segmented_volume.nii.gz"
+slice_prefix = "slice"
+segmentation_suffix = "_Simple Segmentation.png"
+
+# -------- LABEL MAPPING --------
+# Pixel label value to treat as brain / foreground in the binary output mask
+foreground_label = 1

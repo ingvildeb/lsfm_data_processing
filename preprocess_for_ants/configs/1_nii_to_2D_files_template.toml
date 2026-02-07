@@ -1,0 +1,19 @@
+# ================================
+# NIFTI TO 2D CORONAL TIFF SLICES
+# ================================
+
+# Convert a 3D downsampled LSFM NIfTI volume into 2D coronal TIFF slices.
+# These slices are typically used as input for manual / ilastik brain-mask labeling.
+
+# Copy this file, rename to:
+# 1_nii_to_2D_files_local.toml
+# and edit values there.
+
+# -------- INPUT --------
+# Path to your raw NIfTI volume file
+nifti_file = "Z:/LSFM/your_experiment/ch2_iso20um.nii.gz"
+
+# -------- OUTPUT --------
+# Output folder (created next to nifti_file) and filename pattern
+output_folder_name = "2D_for_mask_generation"
+output_prefix = "slice"

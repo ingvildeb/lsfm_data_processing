@@ -1,0 +1,24 @@
+# ================================
+# APPLY BRAIN MASK TO RAW VOLUME
+# ================================
+
+# Apply a binary brain mask to a raw NIfTI volume.
+# Optionally zero out voxels outside a start/end coronal slice range to remove edge artifacts.
+# Useful as a pre-processing step before registration.
+
+# Copy this file, rename to:
+# 4_apply_mask_local.toml
+# and edit values there.
+
+# -------- INPUT --------
+raw_volume = "Z:/LSFM/your_experiment/ch2_iso20um.nii.gz"
+segmentation_volume = "Z:/LSFM/your_experiment/2D_for_mask_generation/segmented_volume_dilated.nii.gz"
+
+# -------- OPTIONAL SLICE CLIPPING --------
+mask_by_slices = true
+start_slice = 9
+end_slice = 606
+
+# -------- OUTPUT --------
+# Saved to parent of segmentation folder
+output_name = "ch2_iso20um_masked.nii.gz"
