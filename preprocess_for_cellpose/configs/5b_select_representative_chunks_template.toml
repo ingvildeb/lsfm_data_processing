@@ -1,0 +1,24 @@
+# ==========================================
+# SELECT REPRESENTATIVE CHUNKS (WITH ATLAS)
+# ==========================================
+
+# Select a representative subset of chunk images for training, validating or testing a Cellpose model.
+# You need to have corresponding atlas chunks for your chunk images to use this. 
+#If you do not have that, use the script 5a_select_random_chunks instead.
+
+# Copy this file and rename to:
+# 5b_select_representative_chunks_local.toml
+# Then edit values there.
+
+# -------- INPUT --------
+
+# Folder containing filtered image chunks
+chunk_dir = 'PATH/TO/FILTERED_IMAGE_CHUNKS'
+
+# Folder containing filtered atlas chunks
+atlas_chunk_dir = 'PATH/TO/FILTERED_ATLAS_CHUNKS'
+
+# -------- SELECTION SETTINGS --------
+
+# Number of chunk pairs (image + atlas) to select
+number_of_chunks = 50

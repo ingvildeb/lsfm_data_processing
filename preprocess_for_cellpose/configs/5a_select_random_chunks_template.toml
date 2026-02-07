@@ -1,0 +1,28 @@
+# ================================
+# SELECT RANDOM CHUNKS
+# ================================
+
+# Select a set of random chunks for cellpose training, validation or test sets.
+# Use this option if you do NOT have atlas chunks and just want a random selection.
+
+# If you made atlas chunks in the previous steps, you can instead use the script 5b_select_representative_chunks.py to get a 
+# representative subset of different brain regions.
+
+# Copy this file and rename to:
+# 5a_select_random_chunks_local.toml
+# and edit values there.
+
+# -------- INPUT --------
+
+# Folder containing filtered image chunks
+chunk_dir = 'PATH/TO/FILTERED_IMAGE_CHUNKS'
+
+# -------- OUTPUT --------
+
+# Folder where selected chunks will be saved
+out_dir = 'PATH/TO/SAVE_SELECTED_CHUNKS'
+
+# -------- SELECTION SETTINGS --------
+
+# Specify the number of chunks to select randomly
+num_files_to_select = 100
