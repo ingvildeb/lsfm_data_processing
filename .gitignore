@@ -158,3 +158,10 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+preprocess_for_cellpose/configs/1_preprocess_data_config_local.toml
+preprocess_for_cellpose/configs/2_select_representative_sections_local.toml
+preprocess_for_cellpose/configs/2a_get_selected_atlas_sections_local.toml
+preprocess_for_cellpose/configs/3_chunk_data_local.toml
+preprocess_for_cellpose/configs/4_filter_black_chunks_local.toml
+preprocess_for_cellpose/configs/5a_select_random_chunks_local.toml
+preprocess_for_cellpose/configs/5b_select_representative_chunks_local.toml
