@@ -1,3 +1,10 @@
+"""
+Extract atlas slices matching selected section images from step 2.
+
+Requires each sample folder to contain:
+- _01_registration/ANTs_TransformedImage.nii.gz
+"""
+
 from pathlib import Path
 import sys
 import matplotlib.pyplot as plt
@@ -20,8 +27,8 @@ from utils.io_helpers import (
 # -------------------------
 # CONFIG LOADING
 # -------------------------
-
-cfg = load_script_config(Path(__file__), "2a_get_selected_atlas_sections")
+test_mode = False
+cfg = load_script_config(Path(__file__), "2a_get_selected_atlas_sections", test_mode=test_mode)
 
 # -------------------------
 # CONFIG PARAMETERS
@@ -108,3 +115,4 @@ for sample_path in sample_paths:
         cv2.imwrite(str(out_file), atlas_slice)
 
         print("Image has been saved successfully.")
+

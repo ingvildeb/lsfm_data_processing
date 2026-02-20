@@ -1,8 +1,20 @@
+"""
+Preprocess LSFM samples by creating MIPs and/or normalized images.
+
+Expected default channel folder naming:
+- Ex_488_Ch0_stitched for channel 0
+- Ex_561_Ch1_stitched for channel 1
+- Ex_640_Ch2_stitched for channel 2
+
+Use `flag_custom_format` settings in config if your folder layout differs.
+"""
+
 from pathlib import Path
 import cv2
 import shutil
 import sys
 import json
+import tifffile
 
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
@@ -17,10 +29,11 @@ from utils.io_helpers import (
 # -------------------------
 # CONFIG LOADING (shared helper)
 # -------------------------
-
+test_mode = True
 cfg = load_script_config(
     Path(__file__),
-    "1_preprocess_data_config"
+    "1_preprocess_data_config",
+    test_mode=test_mode,
 )
 
 # -------------------------
@@ -104,7 +117,7 @@ for folder in input_folders:
             
             for image in MIP_images:
                 normalized_image = normalize_image(image, min_val, max_val)
-                cv2.imwrite(str(image), normalized_image)
+                tifffile.imwrite(image, normalized_image)
 
             with open(Path(MIP_output_folder / "parameters.txt"), "w") as file:
                 file.write(str(params_dict))
@@ -125,7 +138,7 @@ for folder in input_folders:
 
             for image in images:
                 normalized_image = normalize_image(image, min_val, max_val)
-                cv2.imwrite(str(image), normalized_image)
+                tifffile.imwrite(image, normalized_image)
             
             with open(Path(img_output_folder / "parameters.txt"), "w") as file:
                 file.write(str(params_dict))
@@ -134,6 +147,7 @@ for folder in input_folders:
             print("MIP creation and normalization set to False. Nothing to do here...")
 
     print(f"Finished creating MIPs for {(folder.name.split('_')[5])}")
+
 
 
 

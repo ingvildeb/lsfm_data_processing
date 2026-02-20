@@ -1,3 +1,9 @@
+"""
+Filter out chunk images with low average intensity.
+
+Optionally copies corresponding atlas chunks when atlas pairing is enabled.
+"""
+
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,8 +20,8 @@ from utils.io_helpers import load_script_config, normalize_user_path, require_di
 # -------------------------
 # CONFIG LOADING
 # -------------------------
-
-cfg = load_script_config(Path(__file__), "4_filter_black_chunks")
+test_mode = False
+cfg = load_script_config(Path(__file__), "4_filter_black_chunks", test_mode=test_mode)
 
 # -------------------------
 # CONFIG PARAMETERS
@@ -91,3 +97,4 @@ for image_chunk_path in image_chunk_paths:
 
 
             
+

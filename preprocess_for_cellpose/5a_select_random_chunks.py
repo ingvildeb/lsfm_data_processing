@@ -1,3 +1,9 @@
+"""
+Select a random subset of filtered image chunks.
+
+Use this when atlas chunks are not available.
+"""
+
 from pathlib import Path
 import shutil
 import random
@@ -12,8 +18,8 @@ from utils.io_helpers import load_script_config, normalize_user_path, require_di
 # -------------------------
 # CONFIG LOADING
 # -------------------------
-
-cfg = load_script_config(Path(__file__), "5a_select_random_chunks")
+test_mode = False
+cfg = load_script_config(Path(__file__), "5a_select_random_chunks", test_mode=test_mode)
 
 # -------------------------
 # CONFIG PARAMETERS
@@ -71,3 +77,4 @@ for counter, file in enumerate(selected_files):
     print(f"Copied: {file} as {destination_file_name}")
 
 print(f"Completed copying {num_files_to_select} files with randomized prefixes.")
+

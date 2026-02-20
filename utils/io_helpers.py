@@ -138,9 +138,9 @@ def require_subpath(parent: Path, sub: str, name: str) -> Path:
 # CONFIG LOADER
 # -------------------------
 
-def load_script_config(script_path: Path, config_basename: str) -> dict[str, Any]:
+def load_script_config(script_path: Path, config_basename: str, test_mode: bool = False) -> dict[str, Any]:
     """
-    Load a TOML configuration file using a local/template fallback pattern.
+    Load a TOML configuration file using test/local/template precedence.
 
     The function searches for config files in a `configs/` folder located
     next to the script. It prefers a user-specific local config and falls
@@ -148,6 +148,7 @@ def load_script_config(script_path: Path, config_basename: str) -> dict[str, Any
 
     Search order
     ------------
+    configs/<basename>_test.toml (only if test_mode=True; required)
     configs/<basename>_local.toml
     configs/<basename>_template.toml
 
@@ -160,6 +161,8 @@ def load_script_config(script_path: Path, config_basename: str) -> dict[str, Any
         Path to the running script file (__file__).
     config_basename : str
         Base name of the config (without suffix).
+    test_mode : bool, optional
+        If True, require and load <basename>_test.toml.
 
     Returns
     -------
@@ -175,10 +178,19 @@ def load_script_config(script_path: Path, config_basename: str) -> dict[str, Any
     """
     config_dir = script_path.parent / "configs"
 
+    test_path = config_dir / f"{config_basename}_test.toml"
     local_path = config_dir / f"{config_basename}_local.toml"
     template_path = config_dir / f"{config_basename}_template.toml"
 
-    config_path = local_path if local_path.exists() else template_path
+    if test_mode:
+        if not test_path.exists():
+            raise FileNotFoundError(
+                "Test mode is enabled but no test config was found.\n"
+                f"Expected:\n{test_path}"
+            )
+        config_path = test_path
+    else:
+        config_path = local_path if local_path.exists() else template_path
 
     if not config_path.exists():
         raise FileNotFoundError(

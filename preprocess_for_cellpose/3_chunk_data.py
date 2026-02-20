@@ -1,3 +1,9 @@
+"""
+Chunk TIFF images (2D or z-stack) for Cellpose workflows.
+
+Supports standard images, MIPs, z-stacks, and atlas-slice images.
+"""
+
 from pathlib import Path
 import tifffile
 import sys
@@ -15,10 +21,11 @@ from utils.io_helpers import (
 # -------------------------
 # CONFIG LOADING
 # -------------------------
-
+test_mode = False
 cfg = load_script_config(
     Path(__file__),
-    "3_chunk_data"
+    "3_chunk_data",
+    test_mode=test_mode,
 )
 
 # -------------------------
@@ -82,3 +89,4 @@ for file in files:
         )
 
 print("\nChunking complete.")
+

@@ -1,3 +1,9 @@
+"""
+Select representative chunk pairs (image + atlas) to maximize region coverage.
+
+Requires matching atlas chunks; otherwise use 5a_select_random_chunks.py.
+"""
+
 import numpy as np
 from collections import defaultdict
 from PIL import Image
@@ -11,16 +17,11 @@ sys.path.append(str(parent_dir))
 
 from utils.io_helpers import load_script_config, normalize_user_path, require_dir
 
-"""
-Purpose: Select a representative subset of chunk images using atlas chunks
-to maximize anatomical region coverage.
-"""
-
 # -------------------------
 # CONFIG LOADING
 # -------------------------
-
-cfg = load_script_config(Path(__file__), "5b_select_representative_chunks")
+test_mode = False
+cfg = load_script_config(Path(__file__), "5b_select_representative_chunks", test_mode=test_mode)
 
 # -------------------------
 # CONFIG PARAMETERS
@@ -154,3 +155,4 @@ for atlas_chunk in selected_atlas_chunks:
     print(f"Copied pair: {image_path.name}")
 
 print(f"\nFinished copying {copied} representative chunk pairs.")
+

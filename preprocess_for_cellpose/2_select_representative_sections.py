@@ -1,3 +1,10 @@
+"""
+Select representative TIFF sections from MIP folders, with optional z-stack generation.
+
+Selection is evenly spaced with deterministic shuffling by sample ID.
+The script oversamples by two planes so first/last slices can be dropped.
+"""
+
 from pathlib import Path
 import shutil
 import sys
@@ -18,10 +25,11 @@ from utils.io_helpers import (
 # -------------------------
 # CONFIG LOADING (shared helper)
 # -------------------------
-
+test_mode = False
 cfg = load_script_config(
     Path(__file__),
-    "2_select_representative_sections"
+    "2_select_representative_sections",
+    test_mode=test_mode,
 )
 
 # -------------------------
@@ -169,3 +177,4 @@ for path in folder_paths:
     
         print(f"All selected files from {sample_id} copied.")
         print("-----------")
+
