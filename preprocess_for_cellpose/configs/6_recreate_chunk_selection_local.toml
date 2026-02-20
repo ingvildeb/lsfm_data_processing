@@ -1,0 +1,24 @@
+# Folder with existing chunk TIFF files to recreate.
+existing_chunk_dir = 'PATH/TO/EXISTING_SELECTED_CHUNKS'
+
+# Output folder for recreated chunks. Must be different from existing_chunk_dir.
+output_chunk_dir = 'PATH/TO/OUTPUT_RECREATED_CHUNKS'
+
+# Copy matching *_seg.npy files from existing_chunk_dir when present.
+copy_seg_files = false
+
+# Fail if chunk coords are out of bounds or dimensions mismatch.
+strict_bounds = true
+
+# Index of sample id token in chunk filename parts.
+underscores_to_sample_id = 1
+
+# Index of 'MIP' token in chunk filename parts.
+underscores_to_mip = 2
+
+# Index of 'chunk' token in chunk filename parts.
+underscores_to_chunk = 5
+
+# Map each subject id to its folder of newly preprocessed source images.
+[subject_to_new_image_dir]
+"100477" = 'PATH/TO/NEW_PREPROCESSED_IMAGES_DIR_FOR_100477'

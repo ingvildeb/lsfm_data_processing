@@ -1,0 +1,25 @@
+# Folder with existing chunk TIFF files to recreate.
+existing_chunk_dir = 'C:\Users\SmartBrain_32C_TR\Documents\GitHub\standard_test_data\lsfm_data_processing\recreate_chunks\2D\input\train'
+
+# Output folder for recreated chunks. Must be different from existing_chunk_dir.
+output_chunk_dir = 'C:\Users\SmartBrain_32C_TR\Documents\GitHub\standard_test_data\lsfm_data_processing\recreate_chunks\2D\output'
+
+# Copy matching *_seg.npy files from existing_chunk_dir when present.
+copy_seg_files = true
+
+# Fail if chunk coords are out of bounds or dimensions mismatch.
+strict_bounds = true
+
+# Index of sample id token in chunk filename parts.
+underscores_to_sample_id = 1
+
+# Index of 'MIP' token in chunk filename parts.
+underscores_to_mip = 2
+
+# Index of 'chunk' token in chunk filename parts.
+underscores_to_chunk = 5
+
+# Map each subject id to its folder of newly preprocessed source images.
+[subject_to_new_image_dir]
+"100477" = 'Z:\LSFM\2025\2025_11\2025_11_06\20251106_10_11_26_NB_100477_M_P58_Fbn1_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_MIP20um_min0_max99.9'
+"100582" = 'Z:\LSFM\2025\2025_11\2025_11_06\20251106_12_45_32_NB_100582_F_P58_Ube3a_LAS_488Lectin_561NeuN_640Iba1_4x_4umstep_Destripe_DONE\Ex_561_Ch1_stitched_MIP20um_min0_max99.9'

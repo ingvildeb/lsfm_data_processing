@@ -86,7 +86,7 @@ def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness, u
         # Save MIP image with plane identifiers
         mip_filename = f"MIP_{first_plane}_{last_plane}.tif"
         mip_path = output_dir / mip_filename
-        cv2.imwrite(str(mip_path), mip_img)
+        tifffile.imwrite(mip_path, mip_img)
 
 
 def normalize_image(image_path, min_val=0, max_val=99.5):
@@ -95,16 +95,35 @@ def normalize_image(image_path, min_val=0, max_val=99.5):
 
     # Convert image to NumPy array for manipulation
     image_array = np.array(image_pil)
+    input_dtype = image_array.dtype
 
     # Define clipping thresholds
     lower_threshold = np.percentile(image_array, min_val)
     upper_threshold = np.percentile(image_array, max_val)
 
     # Clip the image pixel values
-    clipped_image = np.clip(image_array, lower_threshold, upper_threshold)
+    clipped_image = np.clip(image_array, lower_threshold, upper_threshold).astype(np.float32)
 
-    # Normalize to range 0-255 and convert to uint8
-    normalized_image = cv2.normalize(clipped_image, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    # Handle constant images (or degenerate percentile choices) safely.
+    if upper_threshold <= lower_threshold:
+        return image_array.astype(input_dtype)
+
+    # Normalize while preserving dtype semantics.
+    if np.issubdtype(input_dtype, np.integer):
+        dtype_info = np.iinfo(input_dtype)
+        normalized_image = cv2.normalize(
+            clipped_image,
+            None,
+            dtype_info.min,
+            dtype_info.max,
+            cv2.NORM_MINMAX,
+        )
+        normalized_image = np.rint(normalized_image).astype(input_dtype)
+    elif np.issubdtype(input_dtype, np.floating):
+        normalized_image = cv2.normalize(clipped_image, None, 0.0, 1.0, cv2.NORM_MINMAX)
+        normalized_image = normalized_image.astype(input_dtype)
+    else:
+        raise TypeError(f"Unsupported image dtype for normalization: {input_dtype}")
 
     return normalized_image
 
@@ -126,9 +145,9 @@ def normalize_and_save(input_image_path, output_dir, min_max_params):
         original_extension = Path(input_image_path).suffix  # Get the original file extension
         normalized_filename = f"{original_name}_norm_min{min_val}_max{max_val}{original_extension}"
         
-        # Save the normalized image
+        # Save normalized TIFF
         normalized_image_path = output_dir / normalized_filename
-        cv2.imwrite(str(normalized_image_path), normalized_image_array)
+        tifffile.imwrite(normalized_image_path, normalized_image_array)
         print(f"Saved normalized image to {normalized_image_path}")
 
 
