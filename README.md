@@ -25,40 +25,7 @@ python preprocess_for_cellpose/2_select_representative_sections.py
 Many of the scripts expect specific filename token positions (underscore-delimited naming), for example to extract z levels, subject id, etcetera. Indexing settings in template configs are according to Kim lab naming conventions. 
 However, underscore index settings can always be modified in the config files to match your patterns as long as you use an underscore-separated file naming convention. Feel free to open an issue if you have any questions about making these scripts work for your own data!
 
-## At-a-glance script table
-
-| ID | Use | Main input(s) | Main output(s) |
-|---|---|---|---|
-| `C1` | MIPs + normalization | stitched TIFF folders | MIP folders<br>normalized image folders |
-| `C2` | Representative section sampling | MIP/image folders | selected TIFFs<br>or z-stack TIFFs |
-| `C2a` | Atlas slice extraction for selected sections | registered atlas NIfTI<br>selected TIFFs | `*_atlas_slice.tif` files |
-| `C3` | Chunking 2D/3D images | TIFF images<br>or z-stacks | `chunked_images_<size>by<size>/...` |
-| `C4` | Low-signal chunk filtering | chunked image folders | `filtered_image_chunks/`<br>optional `filtered_atlas_chunks/` |
-| `C5a` | Random chunk subset | `filtered_image_chunks/` | selected chunk subset |
-| `C5b` | Coverage-based paired chunk selection | filtered image chunks<br>filtered atlas chunks | `selected_image_chunks/`<br>`selected_atlas_chunks/` |
-| `C6` | Recreate previous chunk selection | existing chunks<br>new source image mapping | recreated chunks<br>optional copied `*_seg.npy` |
-| `A1` | NIfTI to 2D slices | raw NIfTI | slice TIFF folder |
-| `A2` | 2D segmentations to 3D mask | segmentation image folder | binary mask NIfTI |
-| `A3` | Mask dilation/fill/smooth | binary mask NIfTI | processed mask NIfTI |
-| `A4` | Apply mask to raw volume | raw NIfTI<br>mask NIfTI | masked NIfTI |
-| `D1` | Normalization parameter comparison | TIFF set<br>(path set in script) | normalized TIFF variants |
-| `D2` | Batch QC collage | sample folder list<br>(set in script) | collage PNG |
-
-Script key:
-- `C1`: `preprocess_for_cellpose/1_preprocess_data.py`
-- `C2`: `preprocess_for_cellpose/2_select_representative_sections.py`
-- `C2a`: `preprocess_for_cellpose/2a_get_selected_atlas_sections.py`
-- `C3`: `preprocess_for_cellpose/3_chunk_data.py`
-- `C4`: `preprocess_for_cellpose/4_filter_black_chunks.py`
-- `C5a`: `preprocess_for_cellpose/5a_select_random_chunks.py`
-- `C5b`: `preprocess_for_cellpose/5b_select_representative_chunks.py`
-- `C6`: `preprocess_for_cellpose/6_recreate_chunk_selection.py`
-- `A1`: `preprocess_for_ants/1_nii_to_2D_files.py`
-- `A2`: `preprocess_for_ants/2_2D_to_nii_mask.py`
-- `A3`: `preprocess_for_ants/3_dilate_and_fill_mask.py`
-- `A4`: `preprocess_for_ants/4_apply_mask.py`
-- `D1`: `data_eval_and_management/determine_norm_params.py`
-- `D2`: `data_eval_and_management/lfsm_batch_eval.py`
+# Overview of script functionalities
 
 ## Cellpose data pipeline (`preprocess_for_cellpose`)
 
