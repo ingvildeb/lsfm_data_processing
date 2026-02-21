@@ -5,6 +5,69 @@ import os
 from pathlib import Path
 import cv2
 import nibabel as nib
+import sys
+
+
+def convert_to_uint8(image_array: np.ndarray) -> np.ndarray:
+    """Scale an image array to uint8 (0..255) using min-max normalization."""
+    arr = np.asarray(image_array)
+    if arr.size == 0:
+        return arr.astype(np.uint8)
+
+    arr_f = arr.astype(np.float32)
+    min_val = float(np.min(arr_f))
+    max_val = float(np.max(arr_f))
+    if max_val <= min_val:
+        return np.zeros(arr.shape, dtype=np.uint8)
+
+    out = cv2.normalize(arr_f, None, 0, 255, cv2.NORM_MINMAX)
+    return np.rint(out).astype(np.uint8)
+
+
+def _raise_if_windows_path_too_long(path: Path, limit: int = 260) -> None:
+    """Raise a clear error when a Windows path likely exceeds legacy MAX_PATH."""
+    if not sys.platform.startswith("win"):
+        return
+    p = str(path.resolve())
+    if len(p) >= limit:
+        raise RuntimeError(
+            "Output path is too long for reliable Windows file operations.\n"
+            f"Length: {len(p)} (limit ~{limit})\n"
+            f"Path:\n{p}\n\n"
+            "Use a shorter output/root path or shorter folder/file naming."
+        )
+
+
+def normalize_array(image_array: np.ndarray, min_val=0, max_val=99.5, convert_to_8bit=False):
+    """Normalize an image array using given percentile min/max values."""
+    input_dtype = image_array.dtype
+
+    lower_threshold = np.percentile(image_array, min_val)
+    upper_threshold = np.percentile(image_array, max_val)
+    clipped_image = np.clip(image_array, lower_threshold, upper_threshold).astype(np.float32)
+
+    if upper_threshold <= lower_threshold:
+        return convert_to_uint8(image_array) if convert_to_8bit else image_array.astype(input_dtype)
+
+    if convert_to_8bit:
+        normalized_image = cv2.normalize(clipped_image, None, 0, 255, cv2.NORM_MINMAX)
+        return np.rint(normalized_image).astype(np.uint8)
+
+    if np.issubdtype(input_dtype, np.integer):
+        dtype_info = np.iinfo(input_dtype)
+        normalized_image = cv2.normalize(
+            clipped_image,
+            None,
+            dtype_info.min,
+            dtype_info.max,
+            cv2.NORM_MINMAX,
+        )
+        return np.rint(normalized_image).astype(input_dtype)
+    if np.issubdtype(input_dtype, np.floating):
+        normalized_image = cv2.normalize(clipped_image, None, 0.0, 1.0, cv2.NORM_MINMAX)
+        return normalized_image.astype(input_dtype)
+
+    raise TypeError(f"Unsupported image dtype for normalization: {input_dtype}")
 
 
 def get_avg_pixel_value(path_to_image):
@@ -50,7 +113,17 @@ def chunk_z_stack(path_to_image, image_outdir, chunk_size):
                 tifffile.imsave("{}/{}_chunk_{}_{}.tif".format(image_outdir,image_name,i, j), stack_chunk)
 
 
-def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness, underscores_to_plane_z):
+def create_mips_from_folder(
+    input_dir,
+    output_dir,
+    z_step_size,
+    mip_thickness,
+    underscores_to_plane_z,
+    do_normalization=False,
+    min_val=0,
+    max_val=99.5,
+    convert_to_8bit=False,
+):
     # Calculate the number of slices to include in each MIP based on the mip_thickness
     slices_per_mip = int(mip_thickness / z_step_size)
     if slices_per_mip < 1:
@@ -77,6 +150,15 @@ def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness, u
   
         # Compute the maximum intensity projection
         mip_img = np.max(np.stack(slices, axis=0), axis=0)
+        if do_normalization:
+            mip_img = normalize_array(
+                mip_img,
+                min_val=min_val,
+                max_val=max_val,
+                convert_to_8bit=convert_to_8bit,
+            )
+        elif convert_to_8bit:
+            mip_img = convert_to_uint8(mip_img)
 
         # Extract plane identifiers for the first and last images
 
@@ -86,69 +168,8 @@ def create_mips_from_folder(input_dir, output_dir, z_step_size, mip_thickness, u
         # Save MIP image with plane identifiers
         mip_filename = f"MIP_{first_plane}_{last_plane}.tif"
         mip_path = output_dir / mip_filename
+        _raise_if_windows_path_too_long(mip_path)
         tifffile.imwrite(mip_path, mip_img)
-
-
-def normalize_image(image_path, min_val=0, max_val=99.5):
-    """Normalize a single image using given min/max values."""
-    image_pil = Image.open(image_path)
-
-    # Convert image to NumPy array for manipulation
-    image_array = np.array(image_pil)
-    input_dtype = image_array.dtype
-
-    # Define clipping thresholds
-    lower_threshold = np.percentile(image_array, min_val)
-    upper_threshold = np.percentile(image_array, max_val)
-
-    # Clip the image pixel values
-    clipped_image = np.clip(image_array, lower_threshold, upper_threshold).astype(np.float32)
-
-    # Handle constant images (or degenerate percentile choices) safely.
-    if upper_threshold <= lower_threshold:
-        return image_array.astype(input_dtype)
-
-    # Normalize while preserving dtype semantics.
-    if np.issubdtype(input_dtype, np.integer):
-        dtype_info = np.iinfo(input_dtype)
-        normalized_image = cv2.normalize(
-            clipped_image,
-            None,
-            dtype_info.min,
-            dtype_info.max,
-            cv2.NORM_MINMAX,
-        )
-        normalized_image = np.rint(normalized_image).astype(input_dtype)
-    elif np.issubdtype(input_dtype, np.floating):
-        normalized_image = cv2.normalize(clipped_image, None, 0.0, 1.0, cv2.NORM_MINMAX)
-        normalized_image = normalized_image.astype(input_dtype)
-    else:
-        raise TypeError(f"Unsupported image dtype for normalization: {input_dtype}")
-
-    return normalized_image
-
-
-def normalize_and_save(input_image_path, output_dir, min_max_params):
-    """Normalize the image with various min/max parameters and save each normalized image with the specified naming convention."""
-    # Create a directory for output images
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    for min_val, max_val in min_max_params:
-        print(f"Normalizing with min: {min_val}, max: {max_val}")
-
-        # Normalize the image using the given min and max
-        normalized_image_array = normalize_image(input_image_path, min_val, max_val)
-        
-        # Create a filename based on the original file name and normalization parameters
-        original_name = Path(input_image_path).stem  # Get the original file name without extension
-        original_extension = Path(input_image_path).suffix  # Get the original file extension
-        normalized_filename = f"{original_name}_norm_min{min_val}_max{max_val}{original_extension}"
-        
-        # Save normalized TIFF
-        normalized_image_path = output_dir / normalized_filename
-        tifffile.imwrite(normalized_image_path, normalized_image_array)
-        print(f"Saved normalized image to {normalized_image_path}")
 
 
 def extract_atlas_plate(reg_volume, image, all_images_path, underscores_to_index, file_number_increment):

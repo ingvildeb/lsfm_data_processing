@@ -14,6 +14,7 @@ channel = 2                 # Following LifeCanves format: 0=488, 1=561, 2=640
 do_normalization = true     # set to false if you do not want normalization
 min_val = 0                 # percentile clip min
 max_val = 99.9              # percentile clip max
+convert_to_8bit = false     # set to true to save output images as 8-bit
 
 
 # -------- ADVANCED --------

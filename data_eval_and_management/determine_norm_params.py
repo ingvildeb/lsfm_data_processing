@@ -1,8 +1,6 @@
-import numpy as np
-import cv2
 from pathlib import Path
-from PIL import Image
-from utils.utils import normalize_image, normalize_and_save
+import tifffile
+from utils.utils import normalize_array
 
 
 
@@ -16,4 +14,9 @@ images = input_image_path.glob("*.tif")
 
 # Run code
 for image in images:
-    normalize_and_save(image, output_directory, min_max_ranges)
+    for min_val, max_val in min_max_ranges:
+        print(f"Normalizing {image.name} with min={min_val}, max={max_val}")
+        image_array = tifffile.TiffFile(image).asarray()
+        normalized_image = normalize_array(image_array, min_val=min_val, max_val=max_val)
+        out_name = f"{image.stem}_norm_min{min_val}_max{max_val}{image.suffix}"
+        tifffile.imwrite(output_directory / out_name, normalized_image)

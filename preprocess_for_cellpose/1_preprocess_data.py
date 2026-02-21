@@ -10,8 +10,6 @@ Use `flag_custom_format` settings in config if your folder layout differs.
 """
 
 from pathlib import Path
-import cv2
-import shutil
 import sys
 import json
 import tifffile
@@ -19,7 +17,7 @@ import tifffile
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
 
-from utils.utils import create_mips_from_folder, normalize_image
+from utils.utils import create_mips_from_folder, normalize_array, _raise_if_windows_path_too_long
 from utils.io_helpers import (
     load_script_config,
     normalize_user_path,
@@ -29,7 +27,7 @@ from utils.io_helpers import (
 # -------------------------
 # CONFIG LOADING (shared helper)
 # -------------------------
-test_mode = True
+test_mode = False
 cfg = load_script_config(
     Path(__file__),
     "1_preprocess_data_config",
@@ -52,6 +50,7 @@ channel = cfg["channel"]
 do_normalization = cfg["do_normalization"]
 min_val = cfg["min_val"]
 max_val = cfg["max_val"]
+convert_to_8bit = cfg.get("convert_to_8bit", False)
 
 # advanced
 z_step_user = cfg.get("z_step_user")
@@ -65,25 +64,6 @@ underscores_to_z_plane_cfg = cfg["underscores_to_z_plane"]
 # -------------------------
 
 for folder in input_folders:
-    print(f"Creating MIPs for {(folder.name.split('_')[5])} ...")
-    
-    json_file = Path(folder) / "metadata.json"
-
-    # Check if the JSON file exists
-    if json_file.is_file():
-        with open(json_file, 'r', encoding='cp1252') as file:
-            json_data = json.load(file)
-            z_step_size = int(float(json_data['session_config']['Z step (µm)']))
-            print(f"Using z step of {z_step_size}")
-    else:
-        print(f"No {json_file} file found.")
-
-        # Check if z_step_user is defined
-        if z_step_user is not None:
-            print(f"Using user defined z step, which is {z_step_user}.")
-            z_step_size = z_step_user
-        else:
-            print("Z step is set to None. Please set your z step manually and try again.")
 
     params_dict = {"create_MIPs": create_MIPs,
                 "mip_thickness": mip_thickness,
@@ -91,7 +71,7 @@ for folder in input_folders:
                 "do_normalization": do_normalization,
                 "min_val": min_val,
                 "max_val": max_val,
-                "z_step_size": z_step_size}
+                "convert_to_8bit": convert_to_8bit}
 
     if flag_old_format:
         underscores_to_z_plane = 0
@@ -108,39 +88,92 @@ for folder in input_folders:
         channel_folder = Path(folder / f"Ex_{channel_wavelengths.get(channel)}_Ch{channel}_stitched//")
 
     if create_MIPs:
+        print(f"Creating MIPs for {(folder.name.split('_')[5])} ...")
+    
+        json_file = Path(folder) / "metadata.json"
+
+        # Check if the JSON file exists
+        if json_file.is_file():
+            with open(json_file, 'r', encoding='cp1252') as file:
+                json_data = json.load(file)
+                z_step_size = int(float(json_data['session_config']['Z step (µm)']))
+                print(f"Using z step of {z_step_size}")
+        else:
+            print(f"No {json_file} file found.")
+
+            # Check if z_step_user is defined
+            if z_step_user is not None:
+                print(f"Using user defined z step, which is {z_step_user}.")
+                z_step_size = z_step_user
+            else:
+                print("Z step is set to None. Please set your z step manually and try again.")
+
+        params_dict["z_step_size"] = z_step_size
+
         if do_normalization:
             MIP_output_folder = channel_folder.parent / f"{channel_folder.name}_MIP{mip_thickness}um_min{min_val}_max{max_val}"
             
-            create_mips_from_folder(channel_folder, MIP_output_folder, z_step_size, mip_thickness, underscores_to_z_plane)
+            create_mips_from_folder(
+                channel_folder,
+                MIP_output_folder,
+                z_step_size,
+                mip_thickness,
+                underscores_to_z_plane,
+                do_normalization=True,
+                min_val=min_val,
+                max_val=max_val,
+                convert_to_8bit=convert_to_8bit,
+            )
 
-            MIP_images = sorted(MIP_output_folder.glob("*.tif"))
-            
-            for image in MIP_images:
-                normalized_image = normalize_image(image, min_val, max_val)
-                tifffile.imwrite(image, normalized_image)
-
-            with open(Path(MIP_output_folder / "parameters.txt"), "w") as file:
+            params_file = Path(MIP_output_folder / "parameters.txt")
+            if sys.platform.startswith("win"):
+                _raise_if_windows_path_too_long(params_file)
+            with open(params_file, "w") as file:
                 file.write(str(params_dict))
 
         else:
             MIP_output_folder = channel_folder.parent / f"{channel_folder.name}_MIP{mip_thickness}um"
-            create_mips_from_folder(channel_folder, MIP_output_folder, z_step_size, mip_thickness, underscores_to_z_plane)
+            create_mips_from_folder(
+                channel_folder,
+                MIP_output_folder,
+                z_step_size,
+                mip_thickness,
+                underscores_to_z_plane,
+                do_normalization=False,
+                convert_to_8bit=convert_to_8bit,
+            )
             
-            with open(Path(MIP_output_folder / "parameters.txt"), "w") as file:
+            params_file = Path(MIP_output_folder / "parameters.txt")
+            if sys.platform.startswith("win"):
+                _raise_if_windows_path_too_long(params_file)
+            with open(params_file, "w") as file:
                 file.write(str(params_dict))
     else:
 
         if do_normalization:
-            img_output_folder = channel_folder.parent / f"{channel_folder.name}_normalized_min{min_val}_max{max_val}"
-            shutil.copytree(channel_folder, img_output_folder)
+            print(f"Creating normalized images for {(folder.name.split('_')[5])} ...")
+            img_output_folder = channel_folder.parent / f"{channel_folder.name}_norm_min{min_val}_max{max_val}"
+            img_output_folder.mkdir(parents=True, exist_ok=True)
 
-            images = sorted(img_output_folder.glob("*.tif"))
+            images = sorted(channel_folder.glob("*.tif"))
+            if sys.platform.startswith("win"):
+                for image in images:
+                    _raise_if_windows_path_too_long(img_output_folder / image.name)
 
             for image in images:
-                normalized_image = normalize_image(image, min_val, max_val)
-                tifffile.imwrite(image, normalized_image)
+                image_array = tifffile.TiffFile(image).asarray()
+                normalized_image = normalize_array(
+                    image_array,
+                    min_val=min_val,
+                    max_val=max_val,
+                    convert_to_8bit=convert_to_8bit,
+                )
+                tifffile.imwrite(img_output_folder / image.name, normalized_image)
             
-            with open(Path(img_output_folder / "parameters.txt"), "w") as file:
+            params_file = Path(img_output_folder / "parameters.txt")
+            if sys.platform.startswith("win"):
+                _raise_if_windows_path_too_long(params_file)
+            with open(params_file, "w") as file:
                 file.write(str(params_dict))
                 
         else:
