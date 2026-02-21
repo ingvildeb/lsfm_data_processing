@@ -1,2 +1,193 @@
 # lsfm_data_processing
- Scripts to work on LSFM data in the Kim lab
+
+Utilities and pipelines for LSFM preprocessing, chunk generation, atlas alignment support, and dataset management.
+
+This README is focused on what each script does and when to use it.
+
+## Repository layout
+
+- `preprocess_for_cellpose/`: build Cellpose training/inference datasets from stitched TIFF volumes
+- `preprocess_for_ants/`: build and apply NIfTI brain masks (ANTs-oriented prep)
+- `data_eval_and_management/`: one-off scripts for normalization tuning and batch visual QC
+- `utils/`: shared helpers used by multiple scripts
+- `archived_and_test/`: older/testing utilities
+
+## How configuration works
+
+Most scripts load TOML from a sibling `configs/` directory via `utils/io_helpers.py`.
+
+Lookup order:
+1. `<script_name>_local.toml` (preferred for your machine, gitignored)
+2. `<script_name>_template.toml` (committed example)
+
+## At-a-glance script table
+
+| Script | Purpose | Main input(s) | Main output(s) |
+|---|---|---|---|
+| `preprocess_for_cellpose/1_preprocess_data.py` | Create MIPs and/or normalized channel images | Sample folder(s) with stitched TIFFs | MIP and/or normalized image folders |
+| `preprocess_for_cellpose/2_select_representative_sections.py` | Pick representative sections (or z-stacks) | MIP/image folder(s) | Selected TIFFs or z-stack TIFFs |
+| `preprocess_for_cellpose/2a_get_selected_atlas_sections.py` | Get atlas slices matching selected sections | Registered atlas NIfTI + selected images | `*_atlas_slice.tif` files |
+| `preprocess_for_cellpose/3_chunk_data.py` | Chunk 2D/3D TIFF data for model workflows | Folder of TIFF images/z-stacks | `chunked_images_<size>by<size>/...` |
+| `preprocess_for_cellpose/4_filter_black_chunks.py` | Remove low-signal chunks | Chunked image folders | `filtered_image_chunks/` (+ optional `filtered_atlas_chunks/`) |
+| `preprocess_for_cellpose/5a_select_random_chunks.py` | Randomly subsample image chunks | `filtered_image_chunks/` | Selected chunk subset in `out_dir` |
+| `preprocess_for_cellpose/5b_select_representative_chunks.py` | Select chunk pairs maximizing atlas coverage | Filtered image chunks + atlas chunks | `selected_image_chunks/` and `selected_atlas_chunks/` |
+| `preprocess_for_cellpose/6_recreate_chunk_selection.py` | Recreate old chunk set from new images | Existing chunks + subject-to-new-image mapping | Recreated chunks (+ optional copied `*_seg.npy`) |
+| `preprocess_for_ants/1_nii_to_2D_files.py` | Convert NIfTI volume to 2D coronal TIFFs | Raw NIfTI | Slice TIFF folder |
+| `preprocess_for_ants/2_2D_to_nii_mask.py` | Rebuild binary mask volume from 2D segmentations | Segmentation image folder | Binary mask NIfTI |
+| `preprocess_for_ants/3_dilate_and_fill_mask.py` | Dilate/fill/smooth mask | Binary mask NIfTI | Processed mask NIfTI |
+| `preprocess_for_ants/4_apply_mask.py` | Apply mask to raw volume | Raw NIfTI + mask NIfTI | Masked NIfTI |
+| `data_eval_and_management/determine_norm_params.py` | Compare normalization parameter choices | TIFF test set (hardcoded path in script) | Multiple normalized TIFF variants |
+| `data_eval_and_management/lfsm_batch_eval.py` | Build batch QC collage | Sample folder list (hardcoded in script) | Collage PNG |
+
+## Cellpose data pipeline (`preprocess_for_cellpose`)
+
+Recommended sequence:
+1. `1_preprocess_data.py`
+2. `2_select_representative_sections.py`
+3. Optional: `2a_get_selected_atlas_sections.py`
+4. `3_chunk_data.py`
+5. `4_filter_black_chunks.py`
+6. Either `5a_select_random_chunks.py` or `5b_select_representative_chunks.py`
+7. Optional utility: `6_recreate_chunk_selection.py`
+
+### `1_preprocess_data.py`
+- Inputs: one or more sample folders with stitched channel images
+- Main functions:
+  - creates MIPs at a target thickness (`create_MIPs=true`)
+  - optionally normalizes images by percentile clipping
+  - optional conversion to 8-bit output
+- Handles both old/new folder naming conventions and custom folder formats.
+- Config template: `preprocess_for_cellpose/configs/1_preprocess_data_config_template.toml`
+
+### `2_select_representative_sections.py`
+- Inputs: one or more folders of TIFF images (commonly MIP outputs)
+- Main functions:
+  - selects evenly spaced sections with deterministic per-sample shuffling
+  - removes first/last sampled slices to avoid edge artifacts
+  - can copy selected sections or generate small z-stacks around each section
+- Config template: `preprocess_for_cellpose/configs/2_select_representative_sections_template.toml`
+
+### `2a_get_selected_atlas_sections.py`
+- Inputs:
+  - sample folders containing `_01_registration/ANTs_TransformedImage.nii.gz`
+  - folder of selected images from step 2
+- Main functions:
+  - maps each selected image to a corresponding atlas slice from registered volume
+  - resizes/rotates atlas slice to image dimensions
+  - optionally shows preview overlay for visual validation
+  - saves `*_atlas_slice.tif` alongside selected images
+- Config template: `preprocess_for_cellpose/configs/2a_get_selected_atlas_sections_template.toml`
+
+### `3_chunk_data.py`
+- Inputs: folder containing TIFF images (2D images or 3D z-stacks)
+- Main functions:
+  - cuts each image/stack into spatial chunks of fixed size
+  - writes outputs under `chunked_images_<size>by<size>/<source_image_stem>/`
+- Config template: `preprocess_for_cellpose/configs/3_chunk_data_template.toml`
+
+### `4_filter_black_chunks.py`
+- Inputs: parent folder of chunked image folders
+- Main functions:
+  - computes per-chunk average intensity
+  - copies only chunks above a threshold into `filtered_image_chunks/`
+  - optional atlas-paired mode: also copies matching atlas chunks into `filtered_atlas_chunks/`
+- Config template: `preprocess_for_cellpose/configs/4_filter_black_chunks_template.toml`
+
+### `5a_select_random_chunks.py`
+- Use when you only have image chunks (no atlas pairing).
+- Inputs: `filtered_image_chunks/`
+- Main functions:
+  - selects approximately evenly spaced chunks across the dataset
+  - shuffles selected set and copies to `out_dir` with prefixed names
+- Config template: `preprocess_for_cellpose/configs/5a_select_random_chunks_template.toml`
+
+### `5b_select_representative_chunks.py`
+- Use when atlas chunk pairs are available.
+- Inputs:
+  - filtered image chunks
+  - filtered atlas chunks
+- Main functions:
+  - greedily selects chunk pairs to maximize atlas region coverage
+  - fills remaining quota randomly if needed
+  - writes paired outputs to `selected_image_chunks/` and `selected_atlas_chunks/`
+- Config template: `preprocess_for_cellpose/configs/5b_select_representative_chunks_template.toml`
+
+### `6_recreate_chunk_selection.py`
+- Utility script to recreate an old chunk selection from newly preprocessed source images.
+- Inputs:
+  - existing selected chunk folder
+  - mapping from subject IDs to new source image folders
+- Main functions:
+  - parses old chunk filenames to recover chunk coordinates
+  - finds matching new source image
+  - re-extracts same chunk window
+  - optional copy of matching `*_seg.npy` annotation files
+- Config template: `preprocess_for_cellpose/configs/6_recreate_chunk_selection_template.toml`
+
+## ANTs/masking pipeline (`preprocess_for_ants`)
+
+Recommended sequence:
+1. `1_nii_to_2D_files.py`
+2. Manual/ilastik segmentation outside this repo
+3. `2_2D_to_nii_mask.py`
+4. `3_dilate_and_fill_mask.py`
+5. `4_apply_mask.py`
+
+### `1_nii_to_2D_files.py`
+- Converts a 3D NIfTI volume into 2D coronal TIFF slices for annotation.
+- Config template: `preprocess_for_ants/configs/1_nii_to_2D_files_template.toml`
+
+### `2_2D_to_nii_mask.py`
+- Rebuilds a 3D binary NIfTI mask from segmented 2D images (for example ilastik outputs).
+- Uses `foreground_label` to binarize segmentations.
+- Config template: `preprocess_for_ants/configs/2_2D_to_nii_mask_template.toml`
+
+### `3_dilate_and_fill_mask.py`
+- Post-processes binary mask with dilation, hole filling, Gaussian smoothing, and thresholding.
+- Config template: `preprocess_for_ants/configs/3_dilate_and_fill_mask_template.toml`
+
+### `4_apply_mask.py`
+- Applies mask volume to raw volume and optionally clips by slice index range.
+- Saves masked NIfTI volume for downstream registration/preprocessing.
+- Config template: `preprocess_for_ants/configs/4_apply_mask_template.toml`
+
+## Data evaluation and management scripts
+
+These are currently one-off scripts with parameters set directly in the file (not TOML-driven):
+
+### `data_eval_and_management/determine_norm_params.py`
+- Applies several normalization percentile settings to a set of test images.
+- Intended for quickly comparing clipping ranges.
+
+### `data_eval_and_management/lfsm_batch_eval.py`
+- Builds a collage from middle sections across multiple LSFM samples.
+- Useful for batch-level QC snapshots.
+
+## Shared utilities
+
+### `utils/io_helpers.py`
+- Path normalization and strict path validation helpers
+- Standardized config loading with local/template fallback
+
+### `utils/utils.py`
+- Image normalization helpers
+- MIP creation
+- 2D and 3D chunking
+- atlas-slice extraction and preview relabeling
+- z-stack assembly helpers
+
+## Typical usage pattern
+
+1. Copy the relevant `*_template.toml` to `*_local.toml`.
+2. Edit `*_local.toml` paths/parameters for your dataset.
+3. Run the corresponding script with Python from repo root, e.g.:
+
+```powershell
+python preprocess_for_cellpose/1_preprocess_data.py
+python preprocess_for_cellpose/2_select_representative_sections.py
+```
+
+## Notes
+
+- Local config files are gitignored by default (`**/configs/*_local.toml`).
+- Several scripts expect specific filename token positions (underscore-delimited naming). If your naming differs, use the `flag_custom_format` and underscore index settings in config.
