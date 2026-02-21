@@ -1,9 +1,0 @@
-chunk_dir = 'PATH/TO/FILTERED_IMAGE_CHUNKS'
-
-# Folder containing filtered atlas chunks
-atlas_chunk_dir = 'PATH/TO/FILTERED_ATLAS_CHUNKS'
-
-# -------- SELECTION SETTINGS --------
-
-# Number of chunk pairs (image + atlas) to select
-number_of_chunks = 50
