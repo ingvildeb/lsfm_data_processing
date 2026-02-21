@@ -22,22 +22,22 @@ Lookup order:
 
 ## At-a-glance script table
 
-| ID | Use | I/O |
-|---|---|---|
-| `C1` | MIPs + normalization | stitched TIFF folders -> MIP/normalized folders |
-| `C2` | Representative section sampling | MIP/image folders -> selected TIFFs or z-stacks |
-| `C2a` | Atlas slice extraction for selected sections | registered atlas + selected TIFFs -> `*_atlas_slice.tif` |
-| `C3` | Chunking 2D/3D images | TIFF images/z-stacks -> `chunked_images_*` |
-| `C4` | Low-signal chunk filtering | chunked folders -> `filtered_image_chunks/` (+ optional atlas) |
-| `C5a` | Random chunk subset | filtered image chunks -> selected subset |
-| `C5b` | Coverage-based paired chunk selection | filtered image+atlas chunks -> selected paired sets |
-| `C6` | Recreate previous chunk selection | existing chunks + new source images -> recreated chunks |
-| `A1` | NIfTI to 2D slices | raw NIfTI -> slice TIFFs |
-| `A2` | 2D segmentations to 3D mask | segmentation images -> binary mask NIfTI |
-| `A3` | Mask dilation/fill/smooth | mask NIfTI -> processed mask NIfTI |
-| `A4` | Apply mask to raw volume | raw NIfTI + mask NIfTI -> masked NIfTI |
-| `D1` | Normalization parameter comparison | TIFF set -> normalized variants |
-| `D2` | Batch QC collage | sample list -> collage PNG |
+| ID | Use | Main input(s) | Main output(s) |
+|---|---|---|---|
+| `C1` | MIPs + normalization | stitched TIFF folders | MIP folders<br>normalized image folders |
+| `C2` | Representative section sampling | MIP/image folders | selected TIFFs<br>or z-stack TIFFs |
+| `C2a` | Atlas slice extraction for selected sections | registered atlas NIfTI<br>selected TIFFs | `*_atlas_slice.tif` files |
+| `C3` | Chunking 2D/3D images | TIFF images<br>or z-stacks | `chunked_images_<size>by<size>/...` |
+| `C4` | Low-signal chunk filtering | chunked image folders | `filtered_image_chunks/`<br>optional `filtered_atlas_chunks/` |
+| `C5a` | Random chunk subset | `filtered_image_chunks/` | selected chunk subset |
+| `C5b` | Coverage-based paired chunk selection | filtered image chunks<br>filtered atlas chunks | `selected_image_chunks/`<br>`selected_atlas_chunks/` |
+| `C6` | Recreate previous chunk selection | existing chunks<br>new source image mapping | recreated chunks<br>optional copied `*_seg.npy` |
+| `A1` | NIfTI to 2D slices | raw NIfTI | slice TIFF folder |
+| `A2` | 2D segmentations to 3D mask | segmentation image folder | binary mask NIfTI |
+| `A3` | Mask dilation/fill/smooth | binary mask NIfTI | processed mask NIfTI |
+| `A4` | Apply mask to raw volume | raw NIfTI<br>mask NIfTI | masked NIfTI |
+| `D1` | Normalization parameter comparison | TIFF set<br>(path set in script) | normalized TIFF variants |
+| `D2` | Batch QC collage | sample folder list<br>(set in script) | collage PNG |
 
 Script key:
 - `C1`: `preprocess_for_cellpose/1_preprocess_data.py`
