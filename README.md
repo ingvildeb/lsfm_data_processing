@@ -22,22 +22,38 @@ Lookup order:
 
 ## At-a-glance script table
 
-| Script | Purpose | Main input(s) | Main output(s) |
-|---|---|---|---|
-| `preprocess_for_cellpose/1_preprocess_data.py` | Create MIPs and/or normalized channel images | Sample folder(s) with stitched TIFFs | MIP and/or normalized image folders |
-| `preprocess_for_cellpose/2_select_representative_sections.py` | Pick representative sections (or z-stacks) | MIP/image folder(s) | Selected TIFFs or z-stack TIFFs |
-| `preprocess_for_cellpose/2a_get_selected_atlas_sections.py` | Get atlas slices matching selected sections | Registered atlas NIfTI + selected images | `*_atlas_slice.tif` files |
-| `preprocess_for_cellpose/3_chunk_data.py` | Chunk 2D/3D TIFF data for model workflows | Folder of TIFF images/z-stacks | `chunked_images_<size>by<size>/...` |
-| `preprocess_for_cellpose/4_filter_black_chunks.py` | Remove low-signal chunks | Chunked image folders | `filtered_image_chunks/` (+ optional `filtered_atlas_chunks/`) |
-| `preprocess_for_cellpose/5a_select_random_chunks.py` | Randomly subsample image chunks | `filtered_image_chunks/` | Selected chunk subset in `out_dir` |
-| `preprocess_for_cellpose/5b_select_representative_chunks.py` | Select chunk pairs maximizing atlas coverage | Filtered image chunks + atlas chunks | `selected_image_chunks/` and `selected_atlas_chunks/` |
-| `preprocess_for_cellpose/6_recreate_chunk_selection.py` | Recreate old chunk set from new images | Existing chunks + subject-to-new-image mapping | Recreated chunks (+ optional copied `*_seg.npy`) |
-| `preprocess_for_ants/1_nii_to_2D_files.py` | Convert NIfTI volume to 2D coronal TIFFs | Raw NIfTI | Slice TIFF folder |
-| `preprocess_for_ants/2_2D_to_nii_mask.py` | Rebuild binary mask volume from 2D segmentations | Segmentation image folder | Binary mask NIfTI |
-| `preprocess_for_ants/3_dilate_and_fill_mask.py` | Dilate/fill/smooth mask | Binary mask NIfTI | Processed mask NIfTI |
-| `preprocess_for_ants/4_apply_mask.py` | Apply mask to raw volume | Raw NIfTI + mask NIfTI | Masked NIfTI |
-| `data_eval_and_management/determine_norm_params.py` | Compare normalization parameter choices | TIFF test set (hardcoded path in script) | Multiple normalized TIFF variants |
-| `data_eval_and_management/lfsm_batch_eval.py` | Build batch QC collage | Sample folder list (hardcoded in script) | Collage PNG |
+| ID | Use | I/O |
+|---|---|---|
+| `C1` | MIPs + normalization | stitched TIFF folders -> MIP/normalized folders |
+| `C2` | Representative section sampling | MIP/image folders -> selected TIFFs or z-stacks |
+| `C2a` | Atlas slice extraction for selected sections | registered atlas + selected TIFFs -> `*_atlas_slice.tif` |
+| `C3` | Chunking 2D/3D images | TIFF images/z-stacks -> `chunked_images_*` |
+| `C4` | Low-signal chunk filtering | chunked folders -> `filtered_image_chunks/` (+ optional atlas) |
+| `C5a` | Random chunk subset | filtered image chunks -> selected subset |
+| `C5b` | Coverage-based paired chunk selection | filtered image+atlas chunks -> selected paired sets |
+| `C6` | Recreate previous chunk selection | existing chunks + new source images -> recreated chunks |
+| `A1` | NIfTI to 2D slices | raw NIfTI -> slice TIFFs |
+| `A2` | 2D segmentations to 3D mask | segmentation images -> binary mask NIfTI |
+| `A3` | Mask dilation/fill/smooth | mask NIfTI -> processed mask NIfTI |
+| `A4` | Apply mask to raw volume | raw NIfTI + mask NIfTI -> masked NIfTI |
+| `D1` | Normalization parameter comparison | TIFF set -> normalized variants |
+| `D2` | Batch QC collage | sample list -> collage PNG |
+
+Script key:
+- `C1`: `preprocess_for_cellpose/1_preprocess_data.py`
+- `C2`: `preprocess_for_cellpose/2_select_representative_sections.py`
+- `C2a`: `preprocess_for_cellpose/2a_get_selected_atlas_sections.py`
+- `C3`: `preprocess_for_cellpose/3_chunk_data.py`
+- `C4`: `preprocess_for_cellpose/4_filter_black_chunks.py`
+- `C5a`: `preprocess_for_cellpose/5a_select_random_chunks.py`
+- `C5b`: `preprocess_for_cellpose/5b_select_representative_chunks.py`
+- `C6`: `preprocess_for_cellpose/6_recreate_chunk_selection.py`
+- `A1`: `preprocess_for_ants/1_nii_to_2D_files.py`
+- `A2`: `preprocess_for_ants/2_2D_to_nii_mask.py`
+- `A3`: `preprocess_for_ants/3_dilate_and_fill_mask.py`
+- `A4`: `preprocess_for_ants/4_apply_mask.py`
+- `D1`: `data_eval_and_management/determine_norm_params.py`
+- `D2`: `data_eval_and_management/lfsm_batch_eval.py`
 
 ## Cellpose data pipeline (`preprocess_for_cellpose`)
 
