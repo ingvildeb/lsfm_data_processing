@@ -2,23 +2,28 @@
 
 Utilities and pipelines for LSFM preprocessing, chunk generation, atlas alignment support, and dataset management.
 
-This README is focused on what each script does and when to use it.
-
 ## Repository layout
 
-- `preprocess_for_cellpose/`: build Cellpose training/inference datasets from stitched TIFF volumes
+- `preprocess_for_cellpose/`: pre-process data for segmentation and build Cellpose training datasets from stitched TIFF images
 - `preprocess_for_ants/`: build and apply NIfTI brain masks (ANTs-oriented prep)
 - `data_eval_and_management/`: one-off scripts for normalization tuning and batch visual QC
 - `utils/`: shared helpers used by multiple scripts
 - `archived_and_test/`: older/testing utilities
 
-## How configuration works
+## Typical usage pattern
 
-Most scripts load TOML from a sibling `configs/` directory via `utils/io_helpers.py`.
+1. Copy the relevant `*_template.toml` to `*_local.toml`.
+2. Edit `*_local.toml` paths/parameters for your dataset.
+3. Run the corresponding script with Python from repo root, e.g.:
 
-Lookup order:
-1. `<script_name>_local.toml` (preferred for your machine, gitignored)
-2. `<script_name>_template.toml` (committed example)
+```powershell
+python preprocess_for_cellpose/1_preprocess_data.py
+python preprocess_for_cellpose/2_select_representative_sections.py
+```
+
+## Important note about file naming
+Many of the scripts expect specific filename token positions (underscore-delimited naming), for example to extract z levels, subject id, etcetera. Indexing settings in template configs are according to Kim lab naming conventions. 
+However, underscore index settings can always be modified in the config files to match your patterns as long as you use an underscore-separated file naming convention. Feel free to open an issue if you have any questions about making these scripts work for your own data!
 
 ## At-a-glance script table
 
@@ -191,19 +196,3 @@ These are currently one-off scripts with parameters set directly in the file (no
 - 2D and 3D chunking
 - atlas-slice extraction and preview relabeling
 - z-stack assembly helpers
-
-## Typical usage pattern
-
-1. Copy the relevant `*_template.toml` to `*_local.toml`.
-2. Edit `*_local.toml` paths/parameters for your dataset.
-3. Run the corresponding script with Python from repo root, e.g.:
-
-```powershell
-python preprocess_for_cellpose/1_preprocess_data.py
-python preprocess_for_cellpose/2_select_representative_sections.py
-```
-
-## Notes
-
-- Local config files are gitignored by default (`**/configs/*_local.toml`).
-- Several scripts expect specific filename token positions (underscore-delimited naming). If your naming differs, use the `flag_custom_format` and underscore index settings in config.
