@@ -10,11 +10,12 @@ Utilities and pipelines for LSFM preprocessing, chunk generation, atlas alignmen
 - `utils/`: shared helpers used by multiple scripts
 - `archived_and_test/`: older/testing utilities
 
-## Typical usage pattern
-
-1. Copy the relevant `*_template.toml` to `*_local.toml`.
-2. Edit `*_local.toml` paths/parameters for your dataset.
-3. Run the corresponding script with Python from repo root, e.g.:
+# Get started
+(1) Create a conda environment with: conda create --name lsfm_data_processing python=3.11
+(2) Pip install the following packages: tifffile, numpy, matplotlib, Pillow, cv2, bibabel
+(3) For any script you want to use, make a copy of the corresponding config file (`*_template.toml`) and rename it to `*_local.toml`
+(4) Edit `*_local.toml` with paths/parameters for your dataset.
+(5) Run the corresponding script using your preferred software (e.g. VSCode) or in the terminal with Python from repo root, e.g.:
 
 ```powershell
 python preprocess_for_cellpose/1_preprocess_data.py
