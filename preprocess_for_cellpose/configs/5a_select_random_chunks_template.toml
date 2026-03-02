@@ -9,3 +9,8 @@ out_dir = 'PATH/TO/SAVE_SELECTED_CHUNKS'
 
 # Specify the number of chunks to select randomly
 num_files_to_select = 100
+
+# If true, skip chunks already present in out_dir.
+# Existing selections are matched by filename without the numeric prefix.
+# New selections continue prefix numbering from the current max prefix in out_dir.
+avoid_reselect_existing = false
