@@ -12,7 +12,7 @@ Utilities and pipelines for LSFM preprocessing, chunk generation, atlas alignmen
 
 # Get started
 1. Create a conda environment with: conda create --name lsfm_data_processing python=3.11
-2. Pip install the following packages: tifffile, numpy, matplotlib, Pillow, cv2, bibabel
+2. Pip install the following packages: pip install numpy tifffile imagecodecs pillow opencv-python nibabel scipy matplotlib
 3. For any script you want to use, make a copy of the corresponding config file (`*_template.toml`) and rename it to `*_local.toml`
 4. Edit `*_local.toml` with paths/parameters for your dataset.
 5. Run the corresponding script using your preferred software (e.g. VSCode) or in the terminal with Python from repo root, e.g.:
