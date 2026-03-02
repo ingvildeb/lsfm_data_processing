@@ -27,7 +27,7 @@ from utils.io_helpers import (
 # -------------------------
 # CONFIG LOADING (shared helper)
 # -------------------------
-test_mode = False
+test_mode = True
 cfg = load_script_config(
     Path(__file__),
     "1_preprocess_data_config",
