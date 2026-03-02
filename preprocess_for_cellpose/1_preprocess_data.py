@@ -27,7 +27,7 @@ from utils.io_helpers import (
 # -------------------------
 # CONFIG LOADING (shared helper)
 # -------------------------
-test_mode = False
+test_mode = True
 cfg = load_script_config(
     Path(__file__),
     "1_preprocess_data_config",
@@ -50,7 +50,8 @@ channel = cfg["channel"]
 do_normalization = cfg["do_normalization"]
 min_val = cfg["min_val"]
 max_val = cfg["max_val"]
-convert_to_8bit = cfg.get("convert_to_8bit", False)
+convert_to_8bit = cfg.get("convert_to_8bit", True)
+use_lzw_compression = cfg.get("use_lzw_compression", True)
 
 # advanced
 z_step_user = cfg.get("z_step_user")
@@ -71,7 +72,8 @@ for folder in input_folders:
                 "do_normalization": do_normalization,
                 "min_val": min_val,
                 "max_val": max_val,
-                "convert_to_8bit": convert_to_8bit}
+                "convert_to_8bit": convert_to_8bit,
+                "use_lzw_compression": use_lzw_compression}
 
     if flag_old_format:
         underscores_to_z_plane = 0
@@ -123,6 +125,7 @@ for folder in input_folders:
                 min_val=min_val,
                 max_val=max_val,
                 convert_to_8bit=convert_to_8bit,
+                use_lzw_compression=use_lzw_compression,
             )
 
             params_file = Path(MIP_output_folder / "parameters.txt")
@@ -141,6 +144,7 @@ for folder in input_folders:
                 underscores_to_z_plane,
                 do_normalization=False,
                 convert_to_8bit=convert_to_8bit,
+                use_lzw_compression=use_lzw_compression,
             )
             
             params_file = Path(MIP_output_folder / "parameters.txt")
@@ -168,7 +172,11 @@ for folder in input_folders:
                     max_val=max_val,
                     convert_to_8bit=convert_to_8bit,
                 )
-                tifffile.imwrite(img_output_folder / image.name, normalized_image)
+                tifffile.imwrite(
+                    img_output_folder / image.name,
+                    normalized_image,
+                    compression="lzw" if use_lzw_compression else None,
+                )
             
             params_file = Path(img_output_folder / "parameters.txt")
             if sys.platform.startswith("win"):

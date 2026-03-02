@@ -123,6 +123,7 @@ def create_mips_from_folder(
     min_val=0,
     max_val=99.5,
     convert_to_8bit=False,
+    use_lzw_compression=True,
 ):
     # Calculate the number of slices to include in each MIP based on the mip_thickness
     slices_per_mip = int(mip_thickness / z_step_size)
@@ -169,7 +170,11 @@ def create_mips_from_folder(
         mip_filename = f"MIP_{first_plane}_{last_plane}.tif"
         mip_path = output_dir / mip_filename
         _raise_if_windows_path_too_long(mip_path)
-        tifffile.imwrite(mip_path, mip_img)
+        tifffile.imwrite(
+            mip_path,
+            mip_img,
+            compression="lzw" if use_lzw_compression else None,
+        )
 
 
 def extract_atlas_plate(reg_volume, image, all_images_path, underscores_to_index, file_number_increment):
