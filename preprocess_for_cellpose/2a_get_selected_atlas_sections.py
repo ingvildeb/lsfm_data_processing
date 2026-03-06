@@ -15,8 +15,8 @@ import cv2
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
 
-from utils.utils import extract_atlas_plate, relabel_sequential_for_preview
-from utils.io_helpers import (
+from lsfm_data_processing.utils.atlas import extract_atlas_plate, relabel_sequential_for_preview
+from lsfm_data_processing.utils.io_helpers import (
     load_script_config,
     normalize_user_path,
     require_dir,

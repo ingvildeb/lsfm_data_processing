@@ -1,6 +1,6 @@
 from pathlib import Path
 import tifffile
-from utils.utils import normalize_array
+from lsfm_data_processing.utils.image_ops import normalize_array
 
 
 

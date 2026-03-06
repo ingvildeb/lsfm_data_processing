@@ -17,8 +17,9 @@ import tifffile
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
 
-from utils.utils import create_mips_from_folder, normalize_array, _raise_if_windows_path_too_long
-from utils.io_helpers import (
+from lsfm_data_processing.utils.image_ops import _raise_if_windows_path_too_long, normalize_array
+from lsfm_data_processing.utils.mip import create_mips_from_folder
+from lsfm_data_processing.utils.io_helpers import (
     load_script_config,
     normalize_user_path,
     require_dir

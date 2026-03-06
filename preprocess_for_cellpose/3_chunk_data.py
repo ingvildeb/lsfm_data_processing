@@ -11,8 +11,8 @@ import sys
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
 
-from utils.utils import chunk_image, chunk_z_stack
-from utils.io_helpers import (
+from lsfm_data_processing.utils.chunking import chunk_image, chunk_z_stack
+from lsfm_data_processing.utils.io_helpers import (
     load_script_config,
     normalize_user_path,
     require_dir,

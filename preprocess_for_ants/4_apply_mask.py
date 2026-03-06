@@ -5,7 +5,7 @@ import sys
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
 
-from utils.io_helpers import load_script_config, normalize_user_path, require_file
+from lsfm_data_processing.utils.io_helpers import load_script_config, normalize_user_path, require_file
 
 # -------------------------
 # CONFIG LOADING
