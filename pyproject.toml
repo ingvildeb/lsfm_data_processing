@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lsfm-data-processing"
+version = "0.1.0"
+description = "Reusable utilities and scripts for LSFM data processing workflows"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "opencv-python",
+  "tifffile",
+  "pillow",
+  "nibabel"
+]
+
+[tool.setuptools.packages.find]
+include = ["lsfm_data_processing*"]
