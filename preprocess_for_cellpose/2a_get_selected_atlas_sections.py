@@ -8,6 +8,7 @@ Requires each sample folder to contain:
 from pathlib import Path
 import sys
 import matplotlib.pyplot as plt
+import nibabel as nib
 from PIL import Image
 import numpy as np
 import cv2
@@ -15,7 +16,7 @@ import cv2
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
 
-from lsfm_data_processing.utils.atlas import extract_atlas_plate, relabel_sequential_for_preview
+from lsfm_data_processing.utils.atlas import atlas_slice_for_mip, relabel_sequential_for_preview
 from lsfm_data_processing.utils.io_helpers import (
     load_script_config,
     normalize_user_path,
@@ -23,6 +24,7 @@ from lsfm_data_processing.utils.io_helpers import (
     require_file,
     require_subpath,
 )
+from lsfm_data_processing.utils.naming import get_underscore_int, get_underscore_token
 
 # -------------------------
 # CONFIG LOADING
@@ -66,34 +68,40 @@ for sample_path in sample_paths:
         registration_dir / "ANTs_TransformedImage.nii.gz",
         "registered atlas volume"
     )
-
-    sample_parts = sample_path.stem.split("_")
+    reg_data = np.asanyarray(nib.load(reg_vol_path).dataobj)
 
     if flag_custom_format:
         underscores_to_id = underscores_to_id_cfg
     else:
         underscores_to_id = 5
-
-    if underscores_to_id >= len(sample_parts):
-        raise RuntimeError(
-            f"Cannot extract sample_id from folder name:\n{sample_path.stem}\n"
-            f"Expected at least {underscores_to_id+1} underscore parts"
-        )
-
-    sample_id = sample_parts[underscores_to_id]
+    sample_id = get_underscore_token(sample_path.stem, underscores_to_id, "sample_id")
     print(f"Selecting atlas sections from sample {sample_id}")
     print("-------------")
     all_images_path = require_dir(
         sample_path / all_images_subfolder,
         "full stitched image folder"
     )
+    all_images = [*all_images_path.glob("*.tif"), *all_images_path.glob("*.tiff")]
+    no_images = len(all_images)
+    if no_images == 0:
+        raise RuntimeError(f"No TIFF files found in full stitched image folder:\n{all_images_path}")
 
     subset_images = sorted(selected_images_path.glob(f"{sample_id}*.tif"))
 
     for image in subset_images:
         print(image)
-        name, atlas_slice = extract_atlas_plate(reg_vol_path, image, all_images_path, underscores_to_index, file_number_increment)
+        name = image.stem
+        number = get_underscore_int(name, underscores_to_index, "section number")
+        print(f"Number extracted is {number}")
         image_data = np.array(Image.open(image))
+        atlas_slice = atlas_slice_for_mip(
+            reg_volume_data=reg_data,
+            no_images=no_images,
+            section_number=number,
+            file_number_increment=file_number_increment,
+            target_h=image_data.shape[0],
+            target_w=image_data.shape[1],
+        )
         print(name)
 
         # plot the slice using matplotlib for visual validation

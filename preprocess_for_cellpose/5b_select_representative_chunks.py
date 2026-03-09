@@ -5,7 +5,6 @@ Requires matching atlas chunks; otherwise use 5a_select_random_chunks.py.
 """
 
 import numpy as np
-from collections import defaultdict
 from PIL import Image
 from pathlib import Path
 import shutil
@@ -16,6 +15,7 @@ parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
 
 from lsfm_data_processing.utils.io_helpers import load_script_config, normalize_user_path, require_dir
+from lsfm_data_processing.utils.selection import greedy_region_coverage_select, random_fill_selection
 
 # -------------------------
 # CONFIG LOADING
@@ -56,7 +56,6 @@ print(f"Found {len(atlas_chunks)} atlas chunks.")
 # REGION COVERAGE ANALYSIS
 # -------------------------
 
-region_counts = defaultdict(set)
 image_region_ids = []
 
 for idx, image_path in enumerate(atlas_chunks):
@@ -65,40 +64,19 @@ for idx, image_path in enumerate(atlas_chunks):
 
     image_region_ids.append(regions)
 
-    for region in regions:
-        region_counts[region].add(idx)
-
-print(f"Found {len(region_counts)} unique atlas region IDs.")
+all_regions = set().union(*image_region_ids) if image_region_ids else set()
+print(f"Found {len(all_regions)} unique atlas region IDs.")
 
 # -------------------------
 # GREEDY COVERAGE SELECTION
 # -------------------------
 
-selected_images = set()
-covered_regions = set()
-
-while (
-    len(selected_images) < number_of_chunks
-    and len(covered_regions) < len(region_counts)
-):
-    best_image = None
-    max_new_regions = 0
-
-    for idx, regions in enumerate(image_region_ids):
-        if idx in selected_images:
-            continue
-
-        new_regions = regions - covered_regions
-
-        if len(new_regions) > max_new_regions:
-            max_new_regions = len(new_regions)
-            best_image = idx
-
-    if best_image is None:
-        break
-
-    selected_images.add(best_image)
-    covered_regions.update(image_region_ids[best_image])
+regions_by_id = {idx: regions for idx, regions in enumerate(image_region_ids)}
+selected_images, covered_regions = greedy_region_coverage_select(
+    candidate_ids=list(range(len(image_region_ids))),
+    regions_by_id=regions_by_id,
+    limit=min(number_of_chunks, len(image_region_ids)),
+)
 
 print(f"Coverage-based selected: {len(selected_images)}")
 
@@ -106,14 +84,13 @@ print(f"Coverage-based selected: {len(selected_images)}")
 # RANDOM FILL (IF NEEDED)
 # -------------------------
 
-random.seed(12345)
-
-available_images = set(range(len(image_region_ids))) - selected_images
-
-while len(selected_images) < number_of_chunks and available_images:
-    idx = random.choice(sorted(available_images))
-    selected_images.add(idx)
-    available_images.remove(idx)
+rng = random.Random(12345)
+selected_images = random_fill_selection(
+    selected=selected_images,
+    all_ids=list(range(len(image_region_ids))),
+    target_total=min(number_of_chunks, len(image_region_ids)),
+    rng=rng,
+)
 
 print(f"Total selected after fill: {len(selected_images)}")
 

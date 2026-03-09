@@ -21,11 +21,13 @@ import tifffile
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
 
-from lsfm_data_processing.utils.io_helpers import load_script_config, normalize_user_path, require_dir
-
-
-def list_tif_files(folder: Path) -> list[Path]:
-    return sorted([p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in {".tif", ".tiff"}])
+from lsfm_data_processing.utils.io_helpers import (
+    list_tiff_files,
+    load_script_config,
+    normalize_user_path,
+    require_dir,
+)
+from lsfm_data_processing.utils.naming import get_underscore_int, get_underscore_token
 
 
 def find_source_candidates(subject_files: list[Path], source_stem: str) -> list[Path]:
@@ -61,9 +63,9 @@ def parse_chunk_filename(
             f"Expected 'chunk' token at index {underscores_to_chunk} in:\n{chunk_path.name}\nparts={parts}"
         )
 
-    y = int(parts[underscores_to_chunk + 1])
-    x = int(parts[underscores_to_chunk + 2])
-    sample_id = parts[underscores_to_sample_id]
+    y = get_underscore_int(chunk_path.stem, underscores_to_chunk + 1, "chunk y")
+    x = get_underscore_int(chunk_path.stem, underscores_to_chunk + 2, "chunk x")
+    sample_id = get_underscore_token(chunk_path.stem, underscores_to_sample_id, "sample_id")
 
     source_stem = "_".join(parts[underscores_to_mip:underscores_to_chunk])
     if source_stem == "":
@@ -119,7 +121,7 @@ output_chunk_dir.mkdir(parents=True, exist_ok=True)
 # -------------------------
 subject_to_files: dict[str, list[Path]] = {}
 for subject_id, search_dir in subject_to_new_image_dir.items():
-    files = list_tif_files(search_dir)
+    files = list_tiff_files(search_dir)
     if len(files) == 0:
         raise RuntimeError(f"No TIFF images found in subject directory:\n{search_dir}")
     subject_to_files[subject_id] = files
@@ -127,7 +129,7 @@ for subject_id, search_dir in subject_to_new_image_dir.items():
 # -------------------------
 # PARSE EXISTING CHUNK SET
 # -------------------------
-existing_chunks = list_tif_files(existing_chunk_dir)
+existing_chunks = list_tiff_files(existing_chunk_dir)
 if not existing_chunks:
     raise RuntimeError(f"No TIFF chunks found in:\n{existing_chunk_dir}")
 

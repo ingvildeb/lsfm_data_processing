@@ -134,6 +134,29 @@ def require_subpath(parent: Path, sub: str, name: str) -> Path:
     return p
 
 
+def list_tiff_files(folder: Path) -> list[Path]:
+    """
+    Return sorted TIFF files directly inside a folder.
+
+    Parameters
+    ----------
+    folder : Path
+        Folder to scan (non-recursive).
+
+    Returns
+    -------
+    list[Path]
+        Sorted list of .tif/.tiff files.
+    """
+    return sorted(
+        [
+            p
+            for p in folder.iterdir()
+            if p.is_file() and p.suffix.lower() in {".tif", ".tiff"}
+        ]
+    )
+
+
 # -------------------------
 # CONFIG LOADER
 # -------------------------

@@ -8,8 +8,6 @@ The script oversamples by two planes so first/last slices can be dropped.
 from pathlib import Path
 import shutil
 import sys
-import numpy as np
-import hashlib
 
 
 parent_dir = Path(__file__).resolve().parent.parent
@@ -21,6 +19,8 @@ from lsfm_data_processing.utils.io_helpers import (
     normalize_user_path,
     require_dir,
 )
+from lsfm_data_processing.utils.naming import get_underscore_token
+from lsfm_data_processing.utils.selection import select_sections_evenly
 
 # -------------------------
 # CONFIG LOADING (shared helper)
@@ -56,18 +56,6 @@ out_path.mkdir(exist_ok=True, parents=True)
 # MAIN CODE
 # -------------------------
 
-# Adding two to sample size so first and / or last (usually black) slices can be removed
-sample_size = sample_size + 2
-
-
-def stable_seed(text: str) -> int:
-    return int.from_bytes(
-        hashlib.sha256(text.encode()).digest()[:4],
-        "little"
-    )
-
-
-
 for path in folder_paths:
 
     folder_parent = path.parent.name
@@ -76,16 +64,7 @@ for path in folder_paths:
         underscores_to_id = underscores_to_id_cfg
     else:
         underscores_to_id = 5
-    parts = folder_parent.split("_")
-
-    if underscores_to_id >= len(parts):
-        raise RuntimeError(
-            f"Cannot extract sample_id from folder name:\n"
-            f"{folder_parent}\n"
-            f"Expected at least {underscores_to_id+1} underscore parts"
-        )
-    
-    sample_id = parts[underscores_to_id]
+    sample_id = get_underscore_token(folder_parent, underscores_to_id, "sample_id")
     
     # Load files
     files = sorted(path.glob("*.tif*"))
@@ -98,47 +77,13 @@ for path in folder_paths:
     print("-----------")
     print(f"Selecting sections from {sample_id}...")
     
-    if n < sample_size:
-        print("Not enough images to sample. Selecting all sections.")
-        regularly_spaced_samples = files
-        positions = np.arange(len(files))
-
-    else:
-        
-        # deterministic RNG per sample
-        seed = stable_seed(sample_id)
-        rng = np.random.default_rng(seed)
-
-        # spacing
-        step = n // (sample_size - 1)
-
-        # bounded offset
-        offset = rng.integers(0, step)
-
-        # evenly spaced positions with offset
-        positions = offset + np.arange(sample_size) * step
-
-        # removing any out-of-bound positions
-        positions = positions[positions < n]
-
-        # permutation to break anatomical alignment
-        indices = rng.permutation(n)
-
-        regularly_spaced_samples = [
-            files[indices[p]] for p in positions
-        ]
-
-    regularly_spaced_samples = sorted(regularly_spaced_samples)
-
-    # drop first / last
-    if len(positions) - sample_size == 0: 
-        del regularly_spaced_samples[0]
-        del regularly_spaced_samples[-1]
-
-    elif len(positions) - sample_size == -1:
-        del regularly_spaced_samples[0]
-    
-    else:
+    regularly_spaced_samples = select_sections_evenly(
+        files=files,
+        sample_id=sample_id,
+        sample_size=sample_size,
+        drop_edges=True,
+    )
+    if len(regularly_spaced_samples) == 0 and n != 0:
         continue
 
     # Copy each file from selected_files to the new directory

@@ -5,6 +5,7 @@ import numpy as np
 import tifffile
 
 from .image_ops import _raise_if_windows_path_too_long, convert_to_uint8, normalize_array
+from .naming import get_underscore_token
 
 
 def create_mips_from_folder(
@@ -50,8 +51,16 @@ def create_mips_from_folder(
         elif convert_to_8bit:
             mip_img = convert_to_uint8(mip_img)
 
-        first_plane = tiff_files[start_slice].stem.split("_")[underscores_to_plane_z]
-        last_plane = tiff_files[end_slice - 1].stem.split("_")[underscores_to_plane_z]
+        first_plane = get_underscore_token(
+            tiff_files[start_slice].stem,
+            underscores_to_plane_z,
+            "first plane z",
+        )
+        last_plane = get_underscore_token(
+            tiff_files[end_slice - 1].stem,
+            underscores_to_plane_z,
+            "last plane z",
+        )
 
         mip_filename = f"MIP_{first_plane}_{last_plane}.tif"
         mip_path = output_dir / mip_filename

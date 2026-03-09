@@ -1,0 +1,51 @@
+# List of subject parent folders.
+# Each parent should contain standardized subfolders defined below.
+subject_parent_dirs = [
+  'PATH/TO/SUBJECT_PARENT_1',
+  'PATH/TO/SUBJECT_PARENT_2',
+]
+
+# Standardized subfolder names inside each subject parent folder.
+mip_subfolder = "Ex_561_Ch1_stitched_MIP20um_min0_max99.9"
+prediction_subfolder = "cellpose_predictions_tif"
+# If multiple TIFF outputs exist per section, only keep files with this prefix.
+# Set to "" to disable prefix filtering.
+prediction_required_prefix = "masks_"
+atlas_subfolder = "."
+
+# Sample id token index from subject parent folder name (underscore split).
+# Example parent: 20251106_10_11_26_NB_100477_...
+# sample_id is token index 5 -> 100477
+underscores_to_id = 5
+
+# Output root where validation data will be written.
+output_dir = 'PATH/TO/VALIDATION_OUTPUT'
+
+# Number of full-section MIPs to select per subject before chunking.
+# Set <= 0 to use all MIPs in each subject.
+sections_per_subject = 12
+
+# Also save selected full MIP sections + matching prediction TIFFs for QC.
+save_selected_sections = true
+
+# If true, use atlas registration for representative region coverage.
+# If false, section/chunk selection falls back to random (with per-sample balancing).
+use_atlas_registration = true
+
+# -------- CHUNK + SELECTION SETTINGS --------
+chunk_size = 256
+number_of_chunks = 300
+min_chunks_per_sample = 20
+require_nonzero_prediction = true
+save_atlas_chunks = true
+random_seed = 12345
+
+# -------- ATLAS MAPPING SETTINGS --------
+# Underscore token index for section number in MIP filename stem.
+underscores_to_index = 2
+
+# Increment in source section numbering used for atlas index mapping.
+file_number_increment = 10
+
+# Subfolder inside atlas_subfolder containing full stitched images.
+all_images_subfolder = "Ex_561_Ch1_stitched"

@@ -7,13 +7,13 @@ Use this when atlas chunks are not available.
 from pathlib import Path
 import shutil
 import random
-import math
 import sys
 
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
 
 from lsfm_data_processing.utils.io_helpers import load_script_config, normalize_user_path, require_dir
+from lsfm_data_processing.utils.selection import select_evenly_spaced_items
 
 # -------------------------
 # CONFIG LOADING
@@ -84,10 +84,8 @@ if num_files_to_select > total_files:
     print("The number of files to select is greater than the number of available files. Selecting all available files.")
     num_files_to_select = total_files
 
-spacing = total_files / num_files_to_select
-
 # Select files based on calculated spacing
-selected_files = [files[math.floor(i * spacing)] for i in range(num_files_to_select)]
+selected_files = select_evenly_spaced_items(files, num_files_to_select)
 
 # Shuffle the selected files to randomize their order
 random.shuffle(selected_files)

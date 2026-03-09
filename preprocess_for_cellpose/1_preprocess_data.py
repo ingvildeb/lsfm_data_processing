@@ -24,6 +24,7 @@ from lsfm_data_processing.utils.io_helpers import (
     normalize_user_path,
     require_dir
 )
+from lsfm_data_processing.utils.naming import get_underscore_token
 
 # -------------------------
 # CONFIG LOADING (shared helper)
@@ -66,6 +67,7 @@ underscores_to_z_plane_cfg = cfg["underscores_to_z_plane"]
 # -------------------------
 
 for folder in input_folders:
+    sample_id = get_underscore_token(folder.name, 5, "sample_id")
 
     params_dict = {"create_MIPs": create_MIPs,
                 "mip_thickness": mip_thickness,
@@ -91,7 +93,7 @@ for folder in input_folders:
         channel_folder = Path(folder / f"Ex_{channel_wavelengths.get(channel)}_Ch{channel}_stitched//")
 
     if create_MIPs:
-        print(f"Creating MIPs for {(folder.name.split('_')[5])} ...")
+        print(f"Creating MIPs for {sample_id} ...")
     
         json_file = Path(folder) / "metadata.json"
 
@@ -156,7 +158,7 @@ for folder in input_folders:
     else:
 
         if do_normalization:
-            print(f"Creating normalized images for {(folder.name.split('_')[5])} ...")
+            print(f"Creating normalized images for {sample_id} ...")
             img_output_folder = channel_folder.parent / f"{channel_folder.name}_norm_min{min_val}_max{max_val}"
             img_output_folder.mkdir(parents=True, exist_ok=True)
 
@@ -188,7 +190,7 @@ for folder in input_folders:
         else:
             print("MIP creation and normalization set to False. Nothing to do here...")
 
-    print(f"Finished creating MIPs for {(folder.name.split('_')[5])}")
+    print(f"Finished creating MIPs for {sample_id}")
 
 
 
