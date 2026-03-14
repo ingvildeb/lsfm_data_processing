@@ -1,0 +1,13 @@
+input_dir = 'Z:/PATH/TO/PNG_FOLDER'
+output_dir = 'Z:/PATH/TO/OUTPUT_TIF_FOLDER'
+
+# -------- CHANNEL SETTINGS --------
+
+# Channel index after RGB loading with PIL:
+# 0 = red, 1 = green, 2 = blue
+channel = 2
+
+# -------- ADVANCED --------
+
+recursive = false   # set to true to convert PNG files inside subfolders too
+overwrite = false   # set to true to overwrite existing TIFF outputs
