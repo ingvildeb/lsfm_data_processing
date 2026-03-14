@@ -1,10 +1,18 @@
 input_dir = 'Z:/PATH/TO/PNG_FOLDER'
 output_dir = 'Z:/PATH/TO/OUTPUT_TIF_FOLDER'
 
+# -------- CONVERSION SETTINGS --------
+
+# conversion_mode:
+# - "single_channel" extracts one RGB channel
+# - "grayscale" applies a standard RGB -> grayscale conversion
+conversion_mode = "single_channel"
+
 # -------- CHANNEL SETTINGS --------
 
 # Channel index after RGB loading with PIL:
 # 0 = red, 1 = green, 2 = blue
+# Only used when conversion_mode = "single_channel"
 channel = 2
 
 # -------- ADVANCED --------

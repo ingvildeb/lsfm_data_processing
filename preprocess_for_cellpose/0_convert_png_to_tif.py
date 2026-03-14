@@ -1,9 +1,10 @@
 """
-Convert RGB PNG images to single-channel TIFF images for Cellpose preprocessing.
+Convert RGB PNG images to TIFF images for Cellpose preprocessing.
 
 This is intended as a compatibility step for datasets that arrive as brightfield
-PNG images. A single RGB channel is extracted and saved as a grayscale TIFF so
-the rest of the Cellpose preprocessing pipeline can keep operating on 2D TIFFs.
+PNG images. Either a single RGB channel can be extracted or the image can be
+converted to grayscale, then saved as a TIFF so the rest of the Cellpose
+preprocessing pipeline can keep operating on 2D TIFFs.
 """
 
 from pathlib import Path
@@ -25,8 +26,11 @@ def find_png_files(input_dir: Path, recursive: bool) -> list[Path]:
     return [p for p in files if p.is_file()]
 
 
-def extract_channel(image_path: Path, channel: int) -> np.ndarray:
+def convert_image(image_path: Path, mode: str, channel: int) -> np.ndarray:
     with Image.open(image_path) as img:
+        if mode == "grayscale":
+            return np.asarray(img.convert("L"))
+
         rgb = img.convert("RGB")
         arr = np.asarray(rgb)
 
@@ -61,12 +65,15 @@ input_dir = require_dir(
 
 output_dir = normalize_user_path(cfg["output_dir"])
 channel = cfg["channel"]
+conversion_mode = cfg.get("conversion_mode", "single_channel")
 recursive = cfg.get("recursive", False)
 overwrite = cfg.get("overwrite", False)
 
 channel_names = {0: "red", 1: "green", 2: "blue"}
 if channel not in channel_names:
     raise RuntimeError("channel must be 0, 1, or 2.")
+if conversion_mode not in {"single_channel", "grayscale"}:
+    raise RuntimeError("conversion_mode must be 'single_channel' or 'grayscale'.")
 
 # -------------------------
 # MAIN CODE
@@ -82,7 +89,10 @@ converted = 0
 skipped = 0
 
 print(f"Found {len(png_files)} PNG files.")
-print(f"Extracting {channel_names[channel]} channel to TIFF.")
+if conversion_mode == "grayscale":
+    print("Converting PNG images to grayscale TIFF.")
+else:
+    print(f"Extracting {channel_names[channel]} channel to TIFF.")
 
 for png_path in png_files:
     out_path = build_output_path(png_path, input_dir, output_dir)
@@ -93,12 +103,15 @@ for png_path in png_files:
         skipped += 1
         continue
 
-    channel_image = extract_channel(png_path, channel=channel)
-    tifffile.imwrite(out_path, channel_image)
+    converted_image = convert_image(
+        png_path,
+        mode=conversion_mode,
+        channel=channel,
+    )
+    tifffile.imwrite(out_path, converted_image)
     converted += 1
     print(f"Converted: {png_path.name} -> {out_path.name}")
 
 print("Conversion complete.")
 print(f"TIFF files written: {converted}")
 print(f"Files skipped: {skipped}")
-
