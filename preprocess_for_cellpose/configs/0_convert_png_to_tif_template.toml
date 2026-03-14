@@ -15,6 +15,9 @@ conversion_mode = "single_channel"
 # Only used when conversion_mode = "single_channel"
 channel = 2
 
+# Set to true to invert intensities after channel extraction or grayscale conversion.
+invert_output = false
+
 # -------- ADVANCED --------
 
 recursive = false   # set to true to convert PNG files inside subfolders too

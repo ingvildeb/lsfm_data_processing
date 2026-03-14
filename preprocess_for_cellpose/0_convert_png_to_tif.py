@@ -40,6 +40,17 @@ def convert_image(image_path: Path, mode: str, channel: int) -> np.ndarray:
     return arr[:, :, channel]
 
 
+def invert_image(image_array: np.ndarray) -> np.ndarray:
+    if np.issubdtype(image_array.dtype, np.integer):
+        max_value = np.iinfo(image_array.dtype).max
+        return max_value - image_array
+
+    if np.issubdtype(image_array.dtype, np.floating):
+        return 1.0 - image_array
+
+    raise TypeError(f"Unsupported dtype for inversion: {image_array.dtype}")
+
+
 def build_output_path(input_path: Path, input_dir: Path, output_dir: Path) -> Path:
     relative_parent = input_path.parent.relative_to(input_dir)
     return output_dir / relative_parent / input_path.with_suffix(".tif").name
@@ -66,6 +77,7 @@ input_dir = require_dir(
 output_dir = normalize_user_path(cfg["output_dir"])
 channel = cfg["channel"]
 conversion_mode = cfg.get("conversion_mode", "single_channel")
+invert_output = cfg.get("invert_output", False)
 recursive = cfg.get("recursive", False)
 overwrite = cfg.get("overwrite", False)
 
@@ -93,6 +105,8 @@ if conversion_mode == "grayscale":
     print("Converting PNG images to grayscale TIFF.")
 else:
     print(f"Extracting {channel_names[channel]} channel to TIFF.")
+if invert_output:
+    print("Inverting output intensities.")
 
 for png_path in png_files:
     out_path = build_output_path(png_path, input_dir, output_dir)
@@ -108,6 +122,8 @@ for png_path in png_files:
         mode=conversion_mode,
         channel=channel,
     )
+    if invert_output:
+        converted_image = invert_image(converted_image)
     tifffile.imwrite(out_path, converted_image)
     converted += 1
     print(f"Converted: {png_path.name} -> {out_path.name}")
