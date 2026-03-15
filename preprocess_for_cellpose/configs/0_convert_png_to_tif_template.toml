@@ -5,6 +5,7 @@ output_dir = 'Z:/PATH/TO/OUTPUT_TIF_FOLDER'
 
 # conversion_mode:
 # - "format_only" preserves the RGB image and only changes the file format
+# - "conversion_only" same as "format_only"
 # - "single_channel" extracts one RGB channel
 # - "grayscale" applies a standard RGB -> grayscale conversion
 conversion_mode = "single_channel"

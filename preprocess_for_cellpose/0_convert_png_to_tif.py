@@ -44,6 +44,14 @@ def convert_image(image_path: Path, mode: str, channel: int) -> np.ndarray:
     return arr[:, :, channel]
 
 
+def write_tiff(out_path: Path, image_array: np.ndarray) -> None:
+    if image_array.ndim == 3 and image_array.shape[2] in {3, 4}:
+        tifffile.imwrite(out_path, image_array, photometric="rgb")
+        return
+
+    tifffile.imwrite(out_path, image_array)
+
+
 def invert_image(image_array: np.ndarray) -> np.ndarray:
     if np.issubdtype(image_array.dtype, np.integer):
         max_value = np.iinfo(image_array.dtype).max
@@ -85,12 +93,16 @@ invert_output = cfg.get("invert_output", False)
 recursive = cfg.get("recursive", False)
 overwrite = cfg.get("overwrite", False)
 
+if conversion_mode == "conversion_only":
+    conversion_mode = "format_only"
+
 channel_names = {0: "red", 1: "green", 2: "blue"}
 if channel not in channel_names:
     raise RuntimeError("channel must be 0, 1, or 2.")
 if conversion_mode not in {"format_only", "single_channel", "grayscale"}:
     raise RuntimeError(
-        "conversion_mode must be 'format_only', 'single_channel', or 'grayscale'."
+        "conversion_mode must be 'format_only', 'conversion_only', "
+        "'single_channel', or 'grayscale'."
     )
 
 # -------------------------
@@ -132,9 +144,9 @@ for png_path in png_files:
     )
     if invert_output:
         converted_image = invert_image(converted_image)
-    tifffile.imwrite(out_path, converted_image)
+    write_tiff(out_path, converted_image)
     converted += 1
-    print(f"Converted: {png_path.name} -> {out_path.name}")
+    print(f"Converted: {png_path.name} -> {out_path.name} shape={converted_image.shape}")
 
 print("Conversion complete.")
 print(f"TIFF files written: {converted}")
