@@ -2,9 +2,10 @@
 Convert RGB PNG images to TIFF images for Cellpose preprocessing.
 
 This is intended as a compatibility step for datasets that arrive as brightfield
-PNG images. Either a single RGB channel can be extracted or the image can be
-converted to grayscale, then saved as a TIFF so the rest of the Cellpose
-preprocessing pipeline can keep operating on 2D TIFFs.
+PNG images. Either the RGB image can be preserved as-is, a single RGB channel
+can be extracted, or the image can be converted to grayscale, then saved as a
+TIFF so the rest of the Cellpose preprocessing pipeline can keep operating on
+2D TIFFs.
 """
 
 from pathlib import Path
@@ -28,6 +29,9 @@ def find_png_files(input_dir: Path, recursive: bool) -> list[Path]:
 
 def convert_image(image_path: Path, mode: str, channel: int) -> np.ndarray:
     with Image.open(image_path) as img:
+        if mode == "format_only":
+            return np.asarray(img.convert("RGB"))
+
         if mode == "grayscale":
             return np.asarray(img.convert("L"))
 
@@ -84,8 +88,10 @@ overwrite = cfg.get("overwrite", False)
 channel_names = {0: "red", 1: "green", 2: "blue"}
 if channel not in channel_names:
     raise RuntimeError("channel must be 0, 1, or 2.")
-if conversion_mode not in {"single_channel", "grayscale"}:
-    raise RuntimeError("conversion_mode must be 'single_channel' or 'grayscale'.")
+if conversion_mode not in {"format_only", "single_channel", "grayscale"}:
+    raise RuntimeError(
+        "conversion_mode must be 'format_only', 'single_channel', or 'grayscale'."
+    )
 
 # -------------------------
 # MAIN CODE
@@ -101,7 +107,9 @@ converted = 0
 skipped = 0
 
 print(f"Found {len(png_files)} PNG files.")
-if conversion_mode == "grayscale":
+if conversion_mode == "format_only":
+    print("Converting PNG images to RGB TIFF without changing channels.")
+elif conversion_mode == "grayscale":
     print("Converting PNG images to grayscale TIFF.")
 else:
     print(f"Extracting {channel_names[channel]} channel to TIFF.")

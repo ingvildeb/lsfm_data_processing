@@ -38,6 +38,7 @@ file_path = require_dir(
 )
 
 chunk_size = cfg["chunk_size"]
+stack_mode = cfg.get("stack_mode", False)
 
 # -------------------------
 # OUTPUT SETUP
@@ -59,6 +60,7 @@ if not files:
     )
 
 print(f"Found {len(files)} images to chunk.\n")
+print(f"stack_mode = {stack_mode}")
 
 # Process each file
 for file in files:
@@ -76,17 +78,23 @@ for file in files:
     # Create the output directory if it doesn't exist
     image_outdir.mkdir(parents=True, exist_ok=True)
     
-    # Call chunk_image function with path objects
-    if len(shape) == 2:
-        chunk_image(file, image_outdir, chunk_size=chunk_size)
-
-    elif len(shape) == 3:
+    # Use explicit config intent rather than inferring stack-vs-image from ndim.
+    if stack_mode:
+        if len(shape) != 3:
+            raise RuntimeError(
+                "stack_mode=true requires 3D stack images with shape (z, y, x).\n"
+                f"Found shape {shape} for file:\n{file}"
+            )
         chunk_z_stack(file, image_outdir, chunk_size=chunk_size)
-    
     else:
-        raise RuntimeError(
-            f"Unsupported image shape {shape} for file:\n{file}"
-        )
+        is_supported_2d = len(shape) == 2 or (len(shape) == 3 and shape[-1] in {3, 4})
+        if not is_supported_2d:
+            raise RuntimeError(
+                "stack_mode=false requires a 2D image.\n"
+                "Supported shapes are (y, x) for grayscale or (y, x, 3/4) for RGB/RGBA.\n"
+                f"Found shape {shape} for file:\n{file}"
+            )
+        chunk_image(file, image_outdir, chunk_size=chunk_size)
 
 print("\nChunking complete.")
 

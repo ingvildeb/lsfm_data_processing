@@ -9,3 +9,7 @@ file_path = 'PATH/TO/IMAGE_FOLDER'
 # is the safest option.
 
 chunk_size = 256
+
+# Set to true only when the input folder contains true 3D stacks with shape (z, y, x).
+# Leave false for ordinary 2D images such as MIPs and atlas slices.
+stack_mode = false
