@@ -39,10 +39,14 @@ def select_sections_evenly(
         positions = np.arange(len(files))
     else:
         rng = np.random.default_rng(stable_seed(sample_id))
-        step = n // (sample_size - 1)
-        offset = int(rng.integers(0, step))
-        positions = offset + np.arange(sample_size) * step
-        positions = positions[positions < n]
+        if sample_size == 1:
+            positions = np.array([int(rng.integers(0, n))])
+        else:
+            # Choose a step/offset pair that guarantees exactly sample_size in-bounds positions.
+            step = max(1, (n - 1) // (sample_size - 1))
+            max_offset = n - 1 - step * (sample_size - 1)
+            offset = int(rng.integers(0, max_offset + 1))
+            positions = offset + np.arange(sample_size) * step
         indices = rng.permutation(n)
         selected = [files[int(indices[p])] for p in positions]
 
