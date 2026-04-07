@@ -162,7 +162,7 @@ for folder in input_folders:
             img_output_folder = channel_folder.parent / f"{channel_folder.name}_norm_min{min_val}_max{max_val}"
             img_output_folder.mkdir(parents=True, exist_ok=True)
 
-            images = sorted(channel_folder.glob("*.tif"))
+            images = sorted(channel_folder.glob("*.tif*"))
             if sys.platform.startswith("win"):
                 for image in images:
                     _raise_if_windows_path_too_long(img_output_folder / image.name)
