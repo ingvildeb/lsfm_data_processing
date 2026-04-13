@@ -51,6 +51,29 @@ from lsfm_data_processing.utils.selection import (  # noqa: E402
 )
 
 
+def split_preselected_mip_name(mip_path: Path) -> tuple[str, str]:
+    """
+    Split a pre-selected MIP stem into `(sample_id, original_mip_stem)`.
+
+    Expected format:
+      <sample_id>_<original MIP stem>
+    Example:
+      100644_MIP_014650_014690.tif -> ("100644", "MIP_014650_014690")
+    """
+    if "_" not in mip_path.stem:
+        raise RuntimeError(
+            f"Pre-selected image filename must start with '<sample_id>_':\n{mip_path.name}"
+        )
+
+    sample_id, original_stem = mip_path.stem.split("_", 1)
+    if not sample_id or not original_stem:
+        raise RuntimeError(
+            f"Pre-selected image filename must start with '<sample_id>_':\n{mip_path.name}"
+        )
+
+    return sample_id, original_stem
+
+
 # -------------------------
 # CONFIG LOADING
 # -------------------------
@@ -75,6 +98,12 @@ use_atlas_registration = cfg.get("use_atlas_registration", True)
 output_dir = normalize_user_path(cfg["output_dir"])
 sections_per_subject = cfg["sections_per_subject"]
 save_selected_sections = cfg["save_selected_sections"]
+preselected_images_dir_cfg = cfg.get("preselected_images_dir", "")
+preselected_images_dir = (
+    require_dir(normalize_user_path(preselected_images_dir_cfg), "Pre-selected images folder")
+    if preselected_images_dir_cfg
+    else None
+)
 
 chunk_size = cfg["chunk_size"]
 number_of_chunks = cfg["number_of_chunks"]
@@ -104,6 +133,7 @@ if save_selected_sections:
 
 for subject_parent in subject_parent_dirs:
     sample_id = get_underscore_token(subject_parent.stem, underscores_to_id, "sample_id")
+    subject_meta[sample_id] = {}
     mip_dir = require_dir(subject_parent / mip_subfolder, f"MIP folder for {sample_id}")
     prediction_dir = require_dir(subject_parent / prediction_subfolder, f"Prediction TIFF folder for {sample_id}")
 
@@ -126,35 +156,85 @@ for subject_parent in subject_parent_dirs:
         if reg_data.ndim != 3:
             raise RuntimeError(f"Registered atlas volume must be 3D. Found shape {reg_data.shape}:\n{reg_vol_path}")
 
-        subject_meta[sample_id] = {"reg_data": reg_data, "no_images": no_images}
+        subject_meta[sample_id].update({"reg_data": reg_data, "no_images": no_images})
 
     mip_files = list_tiff_files(mip_dir)
     if not mip_files:
         raise RuntimeError(f"No TIFF MIP files found for sample {sample_id} in:\n{mip_dir}")
 
     pred_index = build_prediction_index(prediction_dir, prediction_required_prefix)
-    selected_mips = select_sections_evenly(
-        files=mip_files,
-        sample_id=sample_id,
-        sample_size=sections_per_subject,
-        drop_edges=False,
+    subject_meta[sample_id].update(
+        {
+            "mip_dir": mip_dir,
+            "prediction_dir": prediction_dir,
+            "pred_index": pred_index,
+            "mip_files": mip_files,
+        }
     )
 
-    if save_selected_sections:
-        sample_img_out = selected_sections_root / sample_id / "images"
-        sample_pred_out = selected_sections_root / sample_id / "predictions"
-        sample_img_out.mkdir(parents=True, exist_ok=True)
-        sample_pred_out.mkdir(parents=True, exist_ok=True)
-
-    for mip_path in selected_mips:
-        prediction_path = match_prediction_for_mip(mip_path, pred_index, prediction_required_prefix)
-        jobs.append({"sample_id": sample_id, "mip_path": mip_path, "prediction_path": prediction_path})
+if preselected_images_dir is None:
+    for sample_id, meta in subject_meta.items():
+        selected_mips = select_sections_evenly(
+            files=meta["mip_files"],
+            sample_id=sample_id,
+            sample_size=sections_per_subject,
+            drop_edges=False,
+        )
 
         if save_selected_sections:
-            shutil.copy2(mip_path, (selected_sections_root / sample_id / "images" / mip_path.name))
-            shutil.copy2(prediction_path, (selected_sections_root / sample_id / "predictions" / prediction_path.name))
+            sample_img_out = selected_sections_root / sample_id / "images"
+            sample_pred_out = selected_sections_root / sample_id / "predictions"
+            sample_img_out.mkdir(parents=True, exist_ok=True)
+            sample_pred_out.mkdir(parents=True, exist_ok=True)
 
-    print(f"Selected {len(selected_mips)} sections for sample {sample_id}")
+        for mip_path in selected_mips:
+            prediction_path = match_prediction_for_mip(mip_path, meta["pred_index"], prediction_required_prefix)
+            jobs.append({"sample_id": sample_id, "mip_path": mip_path, "prediction_path": prediction_path})
+
+            if save_selected_sections:
+                shutil.copy2(mip_path, (selected_sections_root / sample_id / "images" / mip_path.name))
+                shutil.copy2(prediction_path, (selected_sections_root / sample_id / "predictions" / prediction_path.name))
+
+        print(f"Selected {len(selected_mips)} sections for sample {sample_id}")
+else:
+    preselected_mips = list_tiff_files(preselected_images_dir)
+    if not preselected_mips:
+        raise RuntimeError(f"No TIFF files found in pre-selected images folder:\n{preselected_images_dir}")
+
+    counts_by_sample: dict[str, int] = defaultdict(int)
+    for selected_mip in preselected_mips:
+        sample_id, original_mip_stem = split_preselected_mip_name(selected_mip)
+        if sample_id not in subject_meta:
+            raise RuntimeError(
+                f"Pre-selected image sample_id does not match any provided subject_parent_dirs:\n{selected_mip.name}"
+            )
+
+        match_stub = Path(f"{original_mip_stem}{selected_mip.suffix}")
+        prediction_path = match_prediction_for_mip(
+            match_stub,
+            subject_meta[sample_id]["pred_index"],
+            prediction_required_prefix,
+        )
+        jobs.append(
+            {
+                "sample_id": sample_id,
+                "mip_path": selected_mip,
+                "prediction_path": prediction_path,
+                "source_mip_stem": original_mip_stem,
+            }
+        )
+        counts_by_sample[sample_id] += 1
+
+        if save_selected_sections:
+            sample_img_out = selected_sections_root / sample_id / "images"
+            sample_pred_out = selected_sections_root / sample_id / "predictions"
+            sample_img_out.mkdir(parents=True, exist_ok=True)
+            sample_pred_out.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(selected_mip, (sample_img_out / selected_mip.name))
+            shutil.copy2(prediction_path, (sample_pred_out / prediction_path.name))
+
+    for sample_id in sorted(counts_by_sample):
+        print(f"Using {counts_by_sample[sample_id]} pre-selected sections for sample {sample_id}")
 
 if not jobs:
     raise RuntimeError("No selected section jobs found.")
@@ -169,6 +249,7 @@ for job in jobs:
     sample_id = job["sample_id"]
     mip_path = job["mip_path"]
     prediction_path = job["prediction_path"]
+    source_mip_stem = job.get("source_mip_stem", mip_path.stem)
 
     mip_img = tifffile.TiffFile(mip_path).asarray()
     if mip_img.ndim != 2:
@@ -184,7 +265,7 @@ for job in jobs:
 
     atlas_img = None
     if use_atlas_registration:
-        section_number = get_underscore_int(mip_path.stem, underscores_to_index, "section number")
+        section_number = get_underscore_int(source_mip_stem, underscores_to_index, "section number")
         atlas_img = atlas_slice_for_mip(
             reg_volume_data=subject_meta[sample_id]["reg_data"],
             no_images=subject_meta[sample_id]["no_images"],
@@ -222,6 +303,7 @@ for job in jobs:
                     "mask_nonzero": mask_nonzero,
                     "regions": regions,
                     "region_count": len(regions),
+                    "source_mip_stem": source_mip_stem,
                 }
             )
             by_sample[sample_id].append(idx)
@@ -314,6 +396,7 @@ for idx in selected_ids:
     sample_id = c["sample_id"]
     mip_path = c["mip_path"]
     prediction_path = c["prediction_path"]
+    source_mip_stem = str(c.get("source_mip_stem", mip_path.stem))
     y = int(c["y"])
     x = int(c["x"])
     size = int(c["size"])
@@ -327,7 +410,7 @@ for idx in selected_ids:
     if use_atlas_registration:
         atlas_key = (sample_id, mip_path)
         if atlas_key not in atlas_cache:
-            section_number = get_underscore_int(mip_path.stem, underscores_to_index, "section number")
+            section_number = get_underscore_int(source_mip_stem, underscores_to_index, "section number")
             atlas_cache[atlas_key] = atlas_slice_for_mip(
                 reg_volume_data=subject_meta[sample_id]["reg_data"],
                 no_images=subject_meta[sample_id]["no_images"],
@@ -343,7 +426,7 @@ for idx in selected_ids:
     image_chunk = full_img[y : y + size, x : x + size]
     mask_chunk = masks[y : y + size, x : x + size]
 
-    chunk_stem = f"{sample_id}_{mip_path.stem}_chunk_{y}_{x}"
+    chunk_stem = f"{sample_id}_{source_mip_stem}_chunk_{y}_{x}"
     out_tif = out_chunk_dir / f"{chunk_stem}.tif"
     out_seg = out_chunk_dir / f"{chunk_stem}_seg.npy"
 

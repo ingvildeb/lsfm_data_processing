@@ -5,32 +5,34 @@ subject_parent_dirs = [
   'PATH/TO/SUBJECT_PARENT_2',
 ]
 
-# Standardized subfolder names inside each subject parent folder.
-mip_subfolder = "Ex_561_Ch1_stitched_MIP20um_min0_max99.9"
-prediction_subfolder = "cellpose_predictions_tif"
-# If multiple TIFF outputs exist per section, only keep files with this prefix.
-# Set to "" to disable prefix filtering.
-prediction_required_prefix = "masks_"
-atlas_subfolder = "."
+# Optional folder containing pre-selected MIP TIFFs.
+# Leave as '' to use automatic per-subject section selection.
+preselected_images_dir = ''
 
-# Sample id token index from subject parent folder name (underscore split).
-# Example parent: 20251106_10_11_26_NB_100477_...
-# sample_id is token index 5 -> 100477
+# -------- SUBFOLDER NAMING SETTINGS --------
+# Standardized subfolder names inside each subject parent folder.
+
+mip_subfolder = 'Ex_561_Ch1_stitched_MIP20um_min0_max99.9'
+prediction_subfolder = '_02_ml_result\ch2'
+atlas_subfolder = '_01_registration'
+
+# Prefix for prediction files. Set to '' if no prefix.
+prediction_required_prefix = 'masks_'
+
+# Number of underscored before subject ID in parent folder name
 underscores_to_id = 5
 
-# Output root where validation data will be written.
+# Subfolder inside atlas_subfolder containing full stitched images (non-MIP).
+all_images_subfolder = 'Ex_561_Ch1_stitched'
+
+# Output folder to write validation set to.
 output_dir = 'PATH/TO/VALIDATION_OUTPUT'
 
-# Number of full-section MIPs to select per subject before chunking.
-# Set <= 0 to use all MIPs in each subject.
+# Number of full-section MIPs to select per subject before chunking
 sections_per_subject = 12
 
-# Also save selected full MIP sections + matching prediction TIFFs for QC.
+# Save selected full MIP sections + matching prediction TIFFs to the output folder.
 save_selected_sections = true
-
-# If true, use atlas registration for representative region coverage.
-# If false, section/chunk selection falls back to random (with per-sample balancing).
-use_atlas_registration = true
 
 # -------- CHUNK + SELECTION SETTINGS --------
 chunk_size = 256
@@ -41,11 +43,13 @@ save_atlas_chunks = true
 random_seed = 12345
 
 # -------- ATLAS MAPPING SETTINGS --------
+
+# If true, use atlas registration for representative region coverage.
+# If false, section/chunk selection falls back to random (with per-sample balancing).
+use_atlas_registration = true
+
 # Underscore token index for section number in MIP filename stem.
 underscores_to_index = 2
 
 # Increment in source section numbering used for atlas index mapping.
 file_number_increment = 10
-
-# Subfolder inside atlas_subfolder containing full stitched images.
-all_images_subfolder = "Ex_561_Ch1_stitched"
