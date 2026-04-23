@@ -74,6 +74,48 @@ def split_preselected_mip_name(mip_path: Path) -> tuple[str, str]:
     return sample_id, original_stem
 
 
+def list_preselected_mips(
+    preselected_images_dir: Path,
+    prediction_required_prefix: str,
+) -> list[Path]:
+    """
+    List pre-selected MIP TIFFs from a flat folder, excluding prediction TIFFs.
+    """
+    direct_files = list_tiff_files(preselected_images_dir)
+    if prediction_required_prefix:
+        direct_files = [
+            p for p in direct_files if not p.stem.startswith(prediction_required_prefix)
+        ]
+    if direct_files:
+        return direct_files
+
+    raise RuntimeError(
+        "No pre-selected image TIFF files found in pre-selected images folder.\n"
+        f"Folder: {preselected_images_dir}\n"
+        f"Expected image TIFFs like '<sample_id>_MIP_....tif' and prediction TIFFs "
+        f"like '{prediction_required_prefix}<sample_id>_MIP_....tif' in the same folder."
+    )
+
+
+def match_preselected_prediction_for_mip(
+    selected_mip: Path,
+    prediction_required_prefix: str,
+) -> Path:
+    """
+    Resolve the prediction TIFF for a pre-selected MIP from the same folder.
+    """
+    prediction_name = f"{prediction_required_prefix}{selected_mip.name}"
+    prediction_path = selected_mip.with_name(prediction_name)
+    if not prediction_path.exists():
+        raise RuntimeError(
+            "No matching pre-selected prediction TIFF found for MIP.\n"
+            f"MIP: {selected_mip.name}\n"
+            f"Expected prediction: {prediction_name}\n"
+            f"Folder: {selected_mip.parent}"
+        )
+    return require_file(prediction_path, "Pre-selected prediction TIFF")
+
+
 # -------------------------
 # CONFIG LOADING
 # -------------------------
@@ -104,6 +146,7 @@ preselected_images_dir = (
     if preselected_images_dir_cfg
     else None
 )
+preselected_mode = preselected_images_dir is not None
 
 chunk_size = cfg["chunk_size"]
 number_of_chunks = cfg["number_of_chunks"]
@@ -135,7 +178,6 @@ for subject_parent in subject_parent_dirs:
     sample_id = get_underscore_token(subject_parent.stem, underscores_to_id, "sample_id")
     subject_meta[sample_id] = {}
     mip_dir = require_dir(subject_parent / mip_subfolder, f"MIP folder for {sample_id}")
-    prediction_dir = require_dir(subject_parent / prediction_subfolder, f"Prediction TIFF folder for {sample_id}")
 
     if use_atlas_registration:
         atlas_subject_dir = require_dir(subject_parent / atlas_subfolder, f"Atlas folder for {sample_id}")
@@ -162,17 +204,19 @@ for subject_parent in subject_parent_dirs:
     if not mip_files:
         raise RuntimeError(f"No TIFF MIP files found for sample {sample_id} in:\n{mip_dir}")
 
-    pred_index = build_prediction_index(prediction_dir, prediction_required_prefix)
-    subject_meta[sample_id].update(
-        {
-            "mip_dir": mip_dir,
-            "prediction_dir": prediction_dir,
-            "pred_index": pred_index,
-            "mip_files": mip_files,
-        }
-    )
+    subject_meta[sample_id].update({"mip_dir": mip_dir, "mip_files": mip_files})
 
-if preselected_images_dir is None:
+    if not preselected_mode:
+        prediction_dir = require_dir(subject_parent / prediction_subfolder, f"Prediction TIFF folder for {sample_id}")
+        pred_index = build_prediction_index(prediction_dir, prediction_required_prefix)
+        subject_meta[sample_id].update(
+            {
+                "prediction_dir": prediction_dir,
+                "pred_index": pred_index,
+            }
+        )
+
+if not preselected_mode:
     for sample_id, meta in subject_meta.items():
         selected_mips = select_sections_evenly(
             files=meta["mip_files"],
@@ -197,9 +241,7 @@ if preselected_images_dir is None:
 
         print(f"Selected {len(selected_mips)} sections for sample {sample_id}")
 else:
-    preselected_mips = list_tiff_files(preselected_images_dir)
-    if not preselected_mips:
-        raise RuntimeError(f"No TIFF files found in pre-selected images folder:\n{preselected_images_dir}")
+    preselected_mips = list_preselected_mips(preselected_images_dir, prediction_required_prefix)
 
     counts_by_sample: dict[str, int] = defaultdict(int)
     for selected_mip in preselected_mips:
@@ -209,11 +251,9 @@ else:
                 f"Pre-selected image sample_id does not match any provided subject_parent_dirs:\n{selected_mip.name}"
             )
 
-        match_stub = Path(f"{original_mip_stem}{selected_mip.suffix}")
-        prediction_path = match_prediction_for_mip(
-            match_stub,
-            subject_meta[sample_id]["pred_index"],
-            prediction_required_prefix,
+        prediction_path = match_preselected_prediction_for_mip(
+            selected_mip=selected_mip,
+            prediction_required_prefix=prediction_required_prefix,
         )
         jobs.append(
             {
@@ -390,6 +430,7 @@ mip_cache: dict[Path, np.ndarray] = {}
 pred_cache: dict[Path, np.ndarray] = {}
 atlas_cache: dict[tuple[str, Path], np.ndarray] = {}
 metadata_rows: list[dict[str, object]] = []
+saved_preselected_atlas_paths: set[Path] = set()
 
 for idx in selected_ids:
     c = candidates[idx]
@@ -419,6 +460,11 @@ for idx in selected_ids:
                 target_h=mip_cache[mip_path].shape[0],
                 target_w=mip_cache[mip_path].shape[1],
             )
+            if preselected_mode:
+                provenance_atlas_path = preselected_images_dir / f"atlas_{mip_path.name}"
+                if provenance_atlas_path not in saved_preselected_atlas_paths:
+                    tifffile.imwrite(provenance_atlas_path, atlas_cache[atlas_key])
+                    saved_preselected_atlas_paths.add(provenance_atlas_path)
         atlas_chunk = atlas_cache[atlas_key][y : y + size, x : x + size]
 
     full_img = mip_cache[mip_path]
