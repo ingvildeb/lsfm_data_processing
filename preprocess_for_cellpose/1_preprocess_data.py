@@ -18,7 +18,7 @@ parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
 
 from lsfm_data_processing.utils.image_ops import _raise_if_windows_path_too_long, normalize_array
-from lsfm_data_processing.utils.mip import create_mips_from_folder
+from lsfm_data_processing.utils.mip import read_z_step_um, create_mips_from_folder
 from lsfm_data_processing.utils.io_helpers import (
     load_script_config,
     normalize_user_path,
@@ -97,12 +97,10 @@ for folder in input_folders:
     
         json_file = Path(folder) / "metadata.json"
 
-        # Check if the JSON file exists
+        # Read z-step from metadata when available.
         if json_file.is_file():
-            with open(json_file, 'r', encoding='cp1252') as file:
-                json_data = json.load(file)
-                z_step_size = int(float(json_data['session_config']['Z step (µm)']))
-                print(f"Using z step of {z_step_size}")
+            z_step_size = read_z_step_um(folder)
+            print(f"Using z step of {z_step_size}")
         else:
             print(f"No {json_file} file found.")
 

@@ -1,5 +1,5 @@
 from pathlib import Path
-
+import json
 import cv2
 import numpy as np
 import tifffile
@@ -7,6 +7,34 @@ import tifffile
 from .image_ops import _raise_if_windows_path_too_long, convert_to_uint8, normalize_array
 from .naming import get_underscore_token
 
+def read_z_step_um(sample_dir: Path) -> float:
+    metadata_path = sample_dir / "metadata.json"
+    if not metadata_path.is_file():
+        raise FileNotFoundError(
+            f"Missing required metadata.json:\n{metadata_path}"
+        )
+
+    metadata = None
+    for encoding in ("utf-8", "cp1252"):
+        try:
+            with metadata_path.open("r", encoding=encoding) as f:
+                metadata = json.load(f)
+            break
+        except UnicodeDecodeError:
+            continue
+
+    if metadata is None:
+        raise RuntimeError(f"Could not decode metadata file:\n{metadata_path}")
+
+    session_cfg = metadata.get("session_config") or metadata.get("sample_metadata") or {}
+    z_keys = ("Z step (µm)", "Z step (Âµm)", "Z step (um)", "z_step_um", "z_step_um")
+    for key in z_keys:
+        if key in session_cfg:
+            return float(session_cfg[key])
+
+    raise KeyError(
+        f"No z-step key found in metadata fields 'session_config' or 'sample_metadata':\n{metadata_path}"
+    )
 
 def create_mips_from_folder(
     input_dir: Path,
