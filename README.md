@@ -11,16 +11,59 @@ Utilities and pipelines for LSFM preprocessing, chunk generation, atlas alignmen
 - `archived_and_test/`: older/testing utilities
 
 # Get started
-1. Create a conda environment with: conda create --name lsfm_data_processing python=3.11
-2. Pip install the following packages: pip install numpy tifffile imagecodecs pillow opencv-python nibabel scipy matplotlib
-3. For any script you want to use, make a copy of the corresponding config file (`*_template.toml`) and rename it to `*_local.toml`
-4. Edit `*_local.toml` with paths/parameters for your dataset.
-5. Run the corresponding script using your preferred software (e.g. VSCode) or in the terminal with Python from repo root, e.g.:
+1. Create and activate a conda environment:
+
+```powershell
+conda create --name lsfm_data_processing python=3.11
+conda activate lsfm_data_processing
+```
+
+2. Install this repo's Python requirements from the repo root:
+
+```powershell
+pip install -r requirements.txt
+```
+
+3. If you are using the beta registration workflows that depend on `atlasbuilder`, install `atlasbuilder` separately in editable mode:
+
+```powershell
+cd C:\path\to\atlasbuilder
+pip install -e .
+```
+
+4. For any script you want to use, make a copy of the corresponding config file (`*_template.toml`) and rename it to `*_local.toml`
+5. Edit `*_local.toml` with paths/parameters for your dataset.
+6. Run the corresponding script using your preferred software (e.g. VSCode) or in the terminal with Python from repo root, e.g.:
 
 ```powershell
 python preprocess_for_cellpose/1_preprocess_data.py
 python preprocess_for_cellpose/2_select_representative_sections.py
 ```
+
+## Beta registration setup
+For the first beta-testing phase of registration and transform workflows:
+
+1. Clone `lsfm_data_processing` somewhere local and check out the `registration-beta` branch:
+
+```powershell
+cd C:\Users\YourName\Documents\GitHub
+git clone https://github.com/ingvildeb/lsfm_data_processing.git
+cd lsfm_data_processing
+git switch registration-beta
+```
+
+2. Clone `atlasbuilder` somewhere local as a separate repo:
+
+```powershell
+cd C:\Users\YourName\Documents\GitHub
+git clone https://github.com/ingvildeb/atlasbuilder.git
+```
+
+3. Create and activate the `lsfm_data_processing` conda environment.
+4. Run `pip install -r requirements.txt` from this repo.
+5. Run `pip install -e .` from your `atlasbuilder` repo.
+
+This keeps `lsfm_data_processing` as the lab-facing workflow repo while letting the beta scripts import the current local `atlasbuilder` code directly.
 
 ## Important note about file naming
 Many of the scripts expect specific filename token positions (underscore-delimited naming), for example to extract z levels, subject id, etcetera. Indexing settings in template configs are according to Kim lab naming conventions, but can always be modified in the config files to match your patterns as long as you use an underscore-separated file naming convention. Feel free to open an issue if you have any questions about making these scripts work for your own data!
