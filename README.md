@@ -6,6 +6,7 @@ Utilities and pipelines for LSFM preprocessing, chunk generation, atlas alignmen
 
 - `preprocess_for_cellpose/`: pre-process data for segmentation and build Cellpose training datasets from stitched TIFF images
 - `preprocess_for_ants/`: build and apply NIfTI brain masks (ANTs-oriented prep)
+- `registration_and_transforms/`: batch registration and template-segmentation transform workflows built on `atlasspace`
 - `data_eval_and_management/`: one-off scripts for normalization tuning and batch visual QC
 - `utils/`: shared helpers used by multiple scripts
 - `archived_and_test/`: older/testing utilities
@@ -24,10 +25,10 @@ conda activate lsfm_data_processing
 pip install -r requirements.txt
 ```
 
-3. If you are using the beta registration workflows that depend on `atlasbuilder`, install `atlasbuilder` separately in editable mode:
+3. If you are using the registration workflows under `registration_and_transforms/`, install `atlasspace` separately in editable mode:
 
 ```powershell
-cd C:\path\to\atlasbuilder
+cd C:\path\to\atlasspace
 pip install -e .
 ```
 
@@ -40,30 +41,43 @@ python preprocess_for_cellpose/1_preprocess_data.py
 python preprocess_for_cellpose/2_select_representative_sections.py
 ```
 
-## Beta registration setup
-For the first beta-testing phase of registration and transform workflows:
+## Registration workflow setup
+For the current registration and transform workflows:
 
-1. Clone `lsfm_data_processing` somewhere local and check out the `registration-beta` branch:
+1. Clone `lsfm_data_processing` somewhere local and check out the working branch you intend to use:
 
 ```powershell
 cd C:\Users\YourName\Documents\GitHub
 git clone https://github.com/ingvildeb/lsfm_data_processing.git
 cd lsfm_data_processing
+# Example:
 git switch registration-beta
 ```
 
-2. Clone `atlasbuilder` somewhere local as a separate repo:
+2. Clone `atlasspace` somewhere local as a separate repo:
 
 ```powershell
 cd C:\Users\YourName\Documents\GitHub
-git clone https://github.com/ingvildeb/atlasbuilder.git
+git clone https://github.com/ingvildeb/atlasspace.git
 ```
 
 3. Create and activate the `lsfm_data_processing` conda environment.
 4. Run `pip install -r requirements.txt` from this repo.
-5. Run `pip install -e .` from your `atlasbuilder` repo.
+5. Run `pip install -e .` from your `atlasspace` repo.
 
-This keeps `lsfm_data_processing` as the lab-facing workflow repo while letting the beta scripts import the current local `atlasbuilder` code directly.
+This keeps `lsfm_data_processing` as the lab-facing workflow repo while letting the registration scripts import the current local `atlasspace` code directly.
+
+The batch registration workflow currently lives at:
+
+- `registration_and_transforms/1_batch_register.py`
+- config template: `registration_and_transforms/configs/1_batch_register_template.toml`
+
+In that TOML file:
+
+- `registration_preset` can be either a built-in `atlasspace` preset name such as `tuned_syn_cc` or a path to a custom preset YAML file
+- `template_role` controls whether the shared template is treated as the moving or fixed image
+- `orientation_alignment` controls whether registration inputs are reoriented before ANTs is run
+- `segmentation_transform.enabled = true` applies any template segmentations listed under `[templates.<name>.segmentations]` after registration
 
 ## Important note about file naming
 Many of the scripts expect specific filename token positions (underscore-delimited naming), for example to extract z levels, subject id, etcetera. Indexing settings in template configs are according to Kim lab naming conventions, but can always be modified in the config files to match your patterns as long as you use an underscore-separated file naming convention. Feel free to open an issue if you have any questions about making these scripts work for your own data!

@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any
 import tomllib
+import re
 
 
 # -------------------------
@@ -221,8 +222,35 @@ def load_script_config(script_path: Path, config_basename: str, test_mode: bool 
             f"Expected:\n{local_path}\nOR\n{template_path}"
         )
 
-    with open(config_path, "rb") as f:
-        cfg: dict[str, Any] = tomllib.load(f)
+    config_text = config_path.read_text(encoding="utf-8")
+
+    try:
+        cfg: dict[str, Any] = tomllib.loads(config_text)
+    except tomllib.TOMLDecodeError as exc:
+        if "Unescaped '\\' in a string" not in str(exc):
+            raise
+
+        # Recover from common Windows-path TOML mistakes like
+        # path = "Z:\folder\file.tif" by converting backslashes inside
+        # quoted strings to forward slashes before re-parsing.
+        normalized_text = _normalize_backslashes_in_toml_strings(config_text)
+        cfg = tomllib.loads(normalized_text)
 
     print(f"Using config: {config_path.name}")
     return cfg
+
+
+def _normalize_backslashes_in_toml_strings(config_text: str) -> str:
+    """
+    Convert backslashes to forward slashes inside TOML basic strings.
+
+    This specifically helps user-edited Windows paths remain readable and
+    parseable without requiring manual slash replacement in config files.
+    """
+    string_pattern = re.compile(r'"([^"\\]*(?:\\.[^"\\]*)*)"')
+
+    def replace_match(match: re.Match[str]) -> str:
+        string_content = match.group(1).replace("\\", "/")
+        return f'"{string_content}"'
+
+    return string_pattern.sub(replace_match, config_text)
