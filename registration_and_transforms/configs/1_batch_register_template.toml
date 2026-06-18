@@ -1,5 +1,5 @@
 [run]
-registration_preset = "tuned_syn_cc"
+registration_preset = "tuned_syn_cc" # tuned_syn_cc (Ingvild's) or "baseline_syn_kimlab" (Jay's)
 template_role = "moving"   # use "moving" for template -> subject, "fixed" for subject -> template
 output_subdir = "_01_registration_with_new_script"
 orientation_alignment = "fixed_to_moving"   # use "fixed_to_moving" to have outputs written in template orientation
