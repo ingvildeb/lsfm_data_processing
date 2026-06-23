@@ -1,0 +1,21 @@
+[project]
+project_dir = "/hpc/path/to/sweep_project"
+
+[cluster]
+partition = "compute"
+cpus_per_task = 12
+mem_gb = 128
+time = "24:00:00"
+conda_env = "lsfm_data_processing"
+python_executable = "python"
+
+[workflow]
+# Path to the copied sweep registration TOML on the HPC filesystem.
+# This can be relative to project_dir.
+registration_config = "configs/2_sweep_register_local.toml"
+skip_if_output_exists = true
+dry_run = true
+job_name_prefix = "sweep"
+
+[logging]
+log_dir = "logs/sweep_registration"

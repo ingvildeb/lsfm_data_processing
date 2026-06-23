@@ -6,6 +6,7 @@ orientation_alignment = "fixed_to_moving"   # use "fixed_to_moving" to have outp
 write_input_images = true
 
 [subject_defaults]
+subjects_dir = "subjects"
 image_name = "ch1_iso20um.nii.gz"
 orientation = "las"        # subject image orientation before any atlasspace reorientation
 resolution_um = 20.0
@@ -14,7 +15,7 @@ underscores_to_id = 5      # underscore token index in the subject folder name
 [segmentation_transform]
 enabled = true
 output_subdir = "_01_registration_with_new_script"
-interpolation = "nearestNeighbor"
+interpolation = "genericLabel"  # ANTs label-safe interpolation for segmentation volumes
 write_intermediates = false
 
 [templates.lsfm-neun-v1-p56]
@@ -26,5 +27,5 @@ resolution_um = 20.0
 [templates.lsfm-neun-v1-p56.segmentations]
 mask = "Z:\Labmembers\Ingvild\RM1\atlas_templates\P56\20um\3_brain_mask\T_P56_iteration0_n5_NeuN_template0_20um_mask_oriented_mirrored.nii.gz"
 
-[folder_to_template]
-"Z:\LSFM\2025\2025_06\2025_06_06\20250606_11_00_53_IEB_IEB0001_M_P58_OxtR_LAS_488Bg_561NeuN_640Iba1_4x_4umstep_Destripe_DONE" = "lsfm-neun-v1-p56"
+[subject_to_template]
+"IEB0001" = "lsfm-neun-v1-p56"

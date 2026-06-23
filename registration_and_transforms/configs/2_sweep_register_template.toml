@@ -1,0 +1,45 @@
+[run]
+output_root = "Z:/path/to/sweep_outputs"
+orientation_alignment = "fixed_to_moving"  # use "fixed_to_moving" to write outputs in template orientation
+write_input_images = false
+
+[presets]
+names = [
+  "baseline_syn_kimlab",
+  "tuned_syn_cc",
+]
+
+[templates.ccfv3]
+image = "Z:/path/to/ccfv3.nii.gz"
+space_name = "ccfv3"
+orientation = "lsp"
+resolution_um = 20.0
+
+[templates.neun_v1]
+image = "Z:/path/to/neun_template_v1.nii.gz"
+space_name = "neun_v1"
+orientation = "lsp"
+resolution_um = 20.0
+
+[images.subject_101422]
+image = "Z:/path/to/101422/ch1_iso20um.nii.gz"
+space_name = "101422"
+orientation = "las"
+resolution_um = 20.0
+
+[images.subject_101425]
+image = "Z:/path/to/101425/ch1_iso20um.nii.gz"
+space_name = "101425"
+orientation = "las"
+resolution_um = 20.0
+
+[images.pose_standardized_template_test]
+image = "Z:/path/to/template_variant_pose_standardized.nii.gz"
+space_name = "pose_standardized_template_test"
+orientation = "lsp"
+resolution_um = 20.0
+
+[image_to_template]
+subject_101422 = ["ccfv3", "neun_v1"]
+subject_101425 = "ccfv3"
+pose_standardized_template_test = "neun_v1"

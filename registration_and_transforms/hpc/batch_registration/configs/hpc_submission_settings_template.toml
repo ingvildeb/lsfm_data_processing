@@ -1,0 +1,30 @@
+# Parent HPC working directory containing:
+# - subjects/
+# - configs/
+# - registration_and_transforms/
+# - logs/ (optional; will be created if needed)
+[project]
+project_dir = "/hpc/path/to/registration_project"
+
+[cluster]
+partition = "compute"
+cpus_per_task = 8
+mem_gb = 64
+time = "24:00:00"
+conda_env = "lsfm_data_processing"
+python_executable = "python"
+
+[workflow]
+# Path to the copied batch registration TOML on the HPC filesystem.
+# This can be relative to project_dir.
+# The copied registration TOML should contain:
+# - [subject_defaults].subjects_dir
+# - [subject_to_template]
+# All subjects declared there will be submitted.
+registration_config = "configs/1_batch_register_local.toml"
+skip_if_output_exists = true
+dry_run = false
+job_name_prefix = "reg"
+
+[logging]
+log_dir = "logs/registration"
