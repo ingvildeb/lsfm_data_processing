@@ -2,13 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import sys
-
-parent_dir = Path(__file__).resolve().parents[3]
-if str(parent_dir) not in sys.path:
-    sys.path.append(str(parent_dir))
-
-from registration_and_transforms._sweep_register_core import (  # noqa: E402
+from lsfm_data_processing.registration_and_transforms._sweep_register_core import (
     SweepJobSpec,
     load_sweep_register_settings_from_path,
     run_sweep_registration_for_job,

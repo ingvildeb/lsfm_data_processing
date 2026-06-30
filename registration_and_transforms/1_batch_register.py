@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 
-parent_dir = Path(__file__).resolve().parent.parent
-if str(parent_dir) not in sys.path:
-    sys.path.append(str(parent_dir))
-
-from registration_and_transforms._batch_register_core import (
+from lsfm_data_processing.registration_and_transforms._batch_register_core import (
     get_configured_subject_folders,
     load_batch_register_settings,
     run_batch_registration_for_subjects,

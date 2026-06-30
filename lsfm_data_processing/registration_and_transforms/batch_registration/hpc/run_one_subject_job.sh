@@ -19,6 +19,6 @@ set -u
 
 cd "$PROJECT_DIR"
 
-"$PYTHON_EXECUTABLE" registration_and_transforms/hpc/batch_registration/run_one_subject.py \
+"$PYTHON_EXECUTABLE" -m lsfm_data_processing.registration_and_transforms.batch_registration.hpc.run_one_subject \
   --registration-config "$REGISTRATION_CONFIG" \
   --subject-dir "$SUBJECT_DIR"

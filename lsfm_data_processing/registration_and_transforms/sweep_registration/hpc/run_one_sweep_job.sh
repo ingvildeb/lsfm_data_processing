@@ -19,7 +19,7 @@ set -u
 
 cd "$PROJECT_DIR"
 
-"$PYTHON_EXECUTABLE" registration_and_transforms/hpc/sweep_registration/run_one_sweep_job.py \
+"$PYTHON_EXECUTABLE" -m lsfm_data_processing.registration_and_transforms.sweep_registration.hpc.run_one_sweep_job \
   --registration-config "$REGISTRATION_CONFIG" \
   --image-key "$IMAGE_KEY" \
   --template-key "$TEMPLATE_KEY" \

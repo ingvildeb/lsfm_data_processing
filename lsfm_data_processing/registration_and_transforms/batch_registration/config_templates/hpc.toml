@@ -1,0 +1,18 @@
+[cluster]
+partition = "compute"
+cpus_per_task = 12
+mem_gb = 128
+time = "24:00:00"
+conda_env = "lsfm_data_processing"
+python_executable = "python"
+
+[workflow]
+# Launch from the project root. This path is interpreted relative to that root
+# unless you provide an absolute path.
+registration_config = "configs/batch_register.toml"
+skip_if_output_exists = true
+dry_run = false
+job_name_prefix = "reg"
+
+[logging]
+log_dir = "logs/registration"

@@ -18,3 +18,9 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 include = ["lsfm_data_processing*"]
+
+[tool.setuptools.package-data]
+"lsfm_data_processing.registration_and_transforms.batch_registration.hpc" = ["*.sh"]
+"lsfm_data_processing.registration_and_transforms.batch_registration.config_templates" = ["*.toml"]
+"lsfm_data_processing.registration_and_transforms.sweep_registration.hpc" = ["*.sh"]
+"lsfm_data_processing.registration_and_transforms.sweep_registration.config_templates" = ["*.toml"]

@@ -3,20 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 import shlex
 import subprocess
-import sys
+import tomllib
 
-parent_dir = Path(__file__).resolve().parents[3]
-if str(parent_dir) not in sys.path:
-    sys.path.append(str(parent_dir))
-
-from lsfm_data_processing.utils.io_helpers import (  # noqa: E402
-    load_script_config,
+from lsfm_data_processing.registration_and_transforms._batch_register_core import (
+    load_batch_register_settings_from_path,
+)
+from lsfm_data_processing.utils.io_helpers import (
+    _normalize_backslashes_in_toml_strings,
     normalize_user_path,
     require_dir,
     require_file,
-)
-from registration_and_transforms._batch_register_core import (  # noqa: E402
-    load_batch_register_settings_from_path,
 )
 
 
@@ -73,22 +69,27 @@ def _build_sbatch_command(
         str(subject_dir),
         conda_env,
         python_executable,
-    ]
+    ] 
 
 
-test_mode = False
-cfg = load_script_config(
-    Path(__file__),
-    "hpc_submission_settings",
-    test_mode=test_mode,
-)
+def _load_hpc_cfg(config_path: Path) -> dict:
+    config_text = config_path.read_text(encoding="utf-8")
+    try:
+        return tomllib.loads(config_text)
+    except tomllib.TOMLDecodeError as exc:
+        if "Unescaped '\\' in a string" not in str(exc):
+            raise
+        normalized_text = _normalize_backslashes_in_toml_strings(config_text)
+        return tomllib.loads(normalized_text)
 
-project_cfg = cfg["project"]
+
+project_dir = require_dir(Path.cwd(), "Project directory")
+hpc_config = require_file(project_dir / "configs" / "hpc.toml", "HPC config")
+cfg = _load_hpc_cfg(hpc_config)
+
 cluster_cfg = cfg["cluster"]
 workflow_cfg = cfg["workflow"]
 logging_cfg = cfg["logging"]
-
-project_dir = require_dir(project_cfg["project_dir"], "HPC project directory")
 registration_config = _resolve_project_path(
     project_dir,
     workflow_cfg["registration_config"],
@@ -120,13 +121,14 @@ if not subject_ids:
     raise RuntimeError("[subject_to_template] in the registration config must not be empty.")
 
 sbatch_script = require_file(
-    Path(__file__).resolve().with_name("submit_batch_register_hpc.sh"),
+    Path(__file__).resolve().with_name("run_one_subject_job.sh"),
     "HPC sbatch wrapper",
 )
 
 submitted_subjects: list[str] = []
 skipped_subjects: list[str] = []
 
+print(f"Using HPC config: {hpc_config}")
 print(f"Using registration config: {registration_config}")
 print(f"Using registration preset: {registration_settings.registration_preset}")
 print(f"Project directory: {project_dir}")

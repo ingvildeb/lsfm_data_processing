@@ -1,6 +1,3 @@
-[project]
-project_dir = "/hpc/path/to/sweep_project"
-
 [cluster]
 partition = "compute"
 cpus_per_task = 12
@@ -10,9 +7,9 @@ conda_env = "lsfm_data_processing"
 python_executable = "python"
 
 [workflow]
-# Path to the copied sweep registration TOML on the HPC filesystem.
-# This can be relative to project_dir.
-registration_config = "configs/2_sweep_register_local.toml"
+# Launch from the project root. This path is interpreted relative to that root
+# unless you provide an absolute path.
+registration_config = "configs/sweep_register.toml"
 skip_if_output_exists = true
 dry_run = true
 job_name_prefix = "sweep"

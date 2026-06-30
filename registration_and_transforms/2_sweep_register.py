@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 
-parent_dir = Path(__file__).resolve().parent.parent
-if str(parent_dir) not in sys.path:
-    sys.path.append(str(parent_dir))
-
-from registration_and_transforms._sweep_register_core import (
+from lsfm_data_processing.registration_and_transforms._sweep_register_core import (
     get_sweep_job_specs,
     load_sweep_register_settings,
     run_sweep_registration_for_jobs,

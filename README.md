@@ -6,7 +6,7 @@ Utilities and pipelines for LSFM preprocessing, chunk generation, atlas alignmen
 
 - `preprocess_for_cellpose/`: pre-process data for segmentation and build Cellpose training datasets from stitched TIFF images
 - `preprocess_for_ants/`: build and apply NIfTI brain masks (ANTs-oriented prep)
-- `registration_and_transforms/`: batch registration and template-segmentation transform workflows built on `atlasspace`
+- `registration_and_transforms/`: legacy top-level wrappers around the installed registration workflows built on `atlasspace`
 - `data_eval_and_management/`: one-off scripts for normalization tuning and batch visual QC
 - `utils/`: shared helpers used by multiple scripts
 - `archived_and_test/`: older/testing utilities
@@ -25,15 +25,14 @@ conda activate lsfm_data_processing
 pip install -r requirements.txt
 ```
 
-3. If you are using the registration workflows under `registration_and_transforms/`, install `atlasspace` separately in editable mode:
+3. If you are using the registration workflows, install `atlasspace` separately:
 
 ```powershell
 cd C:\path\to\atlasspace
-pip install -e .
+pip install .
 ```
 
-4. For any script you want to use, make a copy of the corresponding config file (`*_template.toml`) and rename it to `*_local.toml`
-5. Edit `*_local.toml` with paths/parameters for your dataset.
+4. For any script you want to use, make a copy of the corresponding config template and edit it for your dataset.
 6. Run the corresponding script using your preferred software (e.g. VSCode) or in the terminal with Python from repo root, e.g.:
 
 ```powershell
@@ -42,7 +41,53 @@ python preprocess_for_cellpose/2_select_representative_sections.py
 ```
 
 ## Registration workflow setup
-For the current registration and transform workflows:
+For the current registration and transform workflows, the recommended model is:
+
+- install `lsfm_data_processing` and `atlasspace` into the environment
+- keep each registration project as a small folder containing `subjects/`, `configs/`, and `logs/`
+- use the installed workflow code from the environment rather than copying script bundles into each project
+
+For local interactive use inside this repo, the familiar top-level scripts are still available:
+
+- `registration_and_transforms/1_batch_register.py`
+- `registration_and_transforms/2_sweep_register.py`
+
+with local config templates at:
+
+- `registration_and_transforms/configs/1_batch_register_template.toml`
+- `registration_and_transforms/configs/2_sweep_register_template.toml`
+
+These local scripts follow the same pattern as the rest of the repo:
+- copy `*_template.toml` to `*_local.toml`
+- edit the `_local` file
+- run the script from the repo
+
+Suggested project layout:
+
+```text
+my_registration_project/
+  subjects/
+    IEB0001/
+    IEB0002/
+  configs/
+    batch_register.toml
+    hpc.toml
+    registration_presets/
+      my_custom.yaml
+  logs/
+    registration/
+```
+
+The installed workflow code now lives under:
+
+- `lsfm_data_processing/registration_and_transforms/batch_registration/`
+- `lsfm_data_processing/registration_and_transforms/sweep_registration/`
+
+Each workflow is separated into:
+
+- `local/`: workstation/local execution entrypoints
+- `hpc/`: Slurm submission and per-job runners
+- `config_templates/`: starter TOML files to copy into a project `configs/` folder
 
 1. Clone `lsfm_data_processing` somewhere local and check out the working branch you intend to use:
 
@@ -63,21 +108,54 @@ git clone https://github.com/ingvildeb/atlasspace.git
 
 3. Create and activate the `lsfm_data_processing` conda environment.
 4. Run `pip install -r requirements.txt` from this repo.
-5. Run `pip install -e .` from your `atlasspace` repo.
+5. Run `pip install .` from this repo.
+6. Run `pip install .` from your `atlasspace` repo.
 
-This keeps `lsfm_data_processing` as the lab-facing workflow repo while letting the registration scripts import the current local `atlasspace` code directly.
+This keeps `lsfm_data_processing` as the lab-facing workflow repo while letting the registration workflows import the installed `atlasspace` code directly.
 
-The batch registration workflow currently lives at:
+For local batch registration from an installed package project root:
 
-- `registration_and_transforms/1_batch_register.py`
-- config template: `registration_and_transforms/configs/1_batch_register_template.toml`
+```powershell
+python -m lsfm_data_processing.registration_and_transforms.batch_registration.local.run_batch_register
+```
 
-In that TOML file:
+For HPC batch submission from a project root on the cluster:
+
+```bash
+bash /path/to/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/hpc/submit_batch_register.sh
+```
+
+For local sweep registration from an installed package project root:
+
+```powershell
+python -m lsfm_data_processing.registration_and_transforms.sweep_registration.local.run_sweep_register
+```
+
+For HPC sweep submission:
+
+```bash
+bash /path/to/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/hpc/submit_sweep_register.sh
+```
+
+Starter configs are shipped here:
+
+- `lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/batch_register.toml`
+- `lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/hpc.toml`
+- `lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/sweep_register.toml`
+- `lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/hpc.toml`
+
+In `batch_register.toml`:
 
 - `registration_preset` can be either a built-in `atlasspace` preset name such as `tuned_syn_cc` or a path to a custom preset YAML file
 - `template_role` controls whether the shared template is treated as the moving or fixed image
 - `orientation_alignment` controls whether registration inputs are reoriented before ANTs is run
 - `segmentation_transform.enabled = true` applies any template segmentations listed under `[templates.<name>.segmentations]` after registration
+- `subjects_dir` is typically just `"subjects"` when launched from the project root
+
+In `hpc.toml`:
+
+- `registration_config` should usually point to `configs/batch_register.toml` or `configs/sweep_register.toml`
+- the submitters assume you launch from the project root, so no separate `project_dir` field is needed
 
 ## Important note about file naming
 Many of the scripts expect specific filename token positions (underscore-delimited naming), for example to extract z levels, subject id, etcetera. Indexing settings in template configs are according to Kim lab naming conventions, but can always be modified in the config files to match your patterns as long as you use an underscore-separated file naming convention. Feel free to open an issue if you have any questions about making these scripts work for your own data!
