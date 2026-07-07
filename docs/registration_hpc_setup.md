@@ -2,51 +2,26 @@
 
 This guide is for Kim lab users who want to run `lsfm_data_processing` registration workflows on HPC.
 
-It covers:
+## Installation
 
-- where to keep the code on HPC
-- how to install `atlasspace` and `lsfm_data_processing` into a conda environment
-- how to set up a registration project folder
-- how to launch batch and sweep registrations with exact commands
+### Shared folder layout
 
-The current recommendation is:
+Shared scripts and templates are found under:
 
-- keep one shared source checkout of `atlasspace`
-- keep one shared source checkout of `lsfm_data_processing`
-- install both into your own conda environment from those shared paths
-- keep each registration run in a separate project folder containing only data, configs, and logs
-
-
-## 1. One-Time Shared Code Setup
-
-These steps only need to be done once per shared code location.
-
-Choose a shared code location on HPC, for example:
-
-```bash
-/gpfs/Labs/Kim/shared_code
+```text
+/gpfs/Labs/Kim/shared_registration/
+  code/
+    atlasspace/
+    lsfm_data_processing/
+  templates/
+    ...
 ```
 
-Clone the repos there:
-
-```bash
-cd /gpfs/Labs/Kim/shared_code
-git clone https://github.com/ingvildeb/atlasspace.git
-git clone https://github.com/ingvildeb/lsfm_data_processing.git
-```
-
-If the repos are already present, update them instead:
-
-```bash
-cd /gpfs/Labs/Kim/shared_code/atlasspace
-git pull
-
-cd /gpfs/Labs/Kim/shared_code/lsfm_data_processing
-git pull
-```
+The `code/` folder is for the shared source repos.
+The `templates/` folder is for lab-shared template and label sets.
 
 
-## 2. Create Your Conda Environment
+### Create your conda environment
 
 Each user should create and use their own environment.
 
@@ -58,23 +33,21 @@ conda activate lsfm_data_processing
 ```
 
 
-## 3. Install the Packages into Your Environment
+### Install the packages into your environment
 
 Install from the shared source folders.
 
 Recommended stable install:
 
 ```bash
-pip install /gpfs/Labs/Kim/shared_code/atlasspace
-pip install /gpfs/Labs/Kim/shared_code/lsfm_data_processing
+pip install /gpfs/Labs/Kim/shared_registration/code/atlasspace
+pip install /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing
 ```
 
 This is a non-editable local install:
 
 - the package is installed from a local folder, not from PyPI
 - later edits to the source repo do not affect your environment until you reinstall
-
-If the shared source is updated later and you want the new version, rerun the same two commands.
 
 You can verify imports with:
 
@@ -83,7 +56,9 @@ python -c "import atlasspace; import lsfm_data_processing; print('Imports OK')"
 ```
 
 
-## 4. Create a Registration Project Folder
+## Batch Registration
+
+### Create a registration project folder
 
 Each project should be a small, clean folder with this structure:
 
@@ -114,47 +89,22 @@ my_registration_project/
 ```
 
 
-## 5. Copy the Config Templates into the Project
-
-### Batch registration
-
-Copy these two files:
+### Copy the config templates into the project
 
 ```bash
-cp /gpfs/Labs/Kim/shared_code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/batch_register.toml \
+cp /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/batch_register.toml \
   /gpfs/Labs/Kim/Ingvild/my_registration_project/configs/batch_register.toml
 
-cp /gpfs/Labs/Kim/shared_code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/hpc.toml \
+cp /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/hpc.toml \
   /gpfs/Labs/Kim/Ingvild/my_registration_project/configs/hpc.toml
 ```
 
-### Sweep registration
 
-Copy these two files:
-
-```bash
-cp /gpfs/Labs/Kim/shared_code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/sweep_register.toml \
-  /gpfs/Labs/Kim/Ingvild/my_registration_project/configs/sweep_register.toml
-
-cp /gpfs/Labs/Kim/shared_code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/hpc.toml \
-  /gpfs/Labs/Kim/Ingvild/my_registration_project/configs/hpc.toml
-```
-
-You only need one workflow config at a time:
-
-- `configs/batch_register.toml` for subject batch runs
-- `configs/sweep_register.toml` for template/preset sweep runs
-
-Both workflows use the same:
-
-- `configs/hpc.toml`
-
-
-## 6. Edit `batch_register.toml`
+### Edit `batch_register.toml`
 
 Typical fields to check:
 
-### `[run]`
+#### `[run]`
 
 - `registration_preset`
 - `template_role`
@@ -162,7 +112,7 @@ Typical fields to check:
 - `orientation_alignment`
 - `write_input_images`
 
-### `[subject_defaults]`
+#### `[subject_defaults]`
 
 - `subjects_dir = "subjects"`
 - `image_name`
@@ -176,7 +126,7 @@ If your subject folders are just named by subject ID, for example `IEB0001`, set
 underscores_to_id = 0
 ```
 
-### `[segmentation_transform]`
+#### `[segmentation_transform]`
 
 Set:
 
@@ -186,7 +136,15 @@ enabled = true
 
 if you want template segmentations transformed after registration.
 
-### `[templates.<name>]`
+If you do not have any segmentations, set:
+
+```toml
+enabled = false
+```
+
+and remove any `[templates.<name>.segmentations]` section.
+
+#### `[templates.<name>]`
 
 Define one or more templates here, including:
 
@@ -195,11 +153,29 @@ Define one or more templates here, including:
 - `orientation`
 - `resolution_um`
 
-### `[templates.<name>.segmentations]`
+These can point into the shared lab template folder, for example:
+
+```toml
+[templates.lsfm-neun-v1-p56]
+image = "/gpfs/Labs/Kim/shared_registration/templates/neun_p56_v1/T_P56_NeuN_v1_20um.nii.gz"
+space_name = "lsfm-neun-v1-p56"
+orientation = "lsp"
+resolution_um = 20.0
+```
+
+#### `[templates.<name>.segmentations]`
 
 Optional template segmentation files that should be transformed after registration.
 
-### `[subject_to_template]`
+Example:
+
+```toml
+[templates.lsfm-neun-v1-p56.segmentations]
+labels = "/gpfs/Labs/Kim/shared_registration/templates/neun_p56_v1/L_P56_NeuN_v1_20um.nii.gz"
+mask = "/gpfs/Labs/Kim/shared_registration/templates/neun_p56_v1/L_P56_NeuN_v1_20um_mask.nii.gz"
+```
+
+#### `[subject_to_template]`
 
 This maps each subject ID to the template name it should use.
 
@@ -212,49 +188,7 @@ Example:
 ```
 
 
-## 7. Edit `sweep_register.toml`
-
-Typical fields to check:
-
-### `[run]`
-
-- `output_root`
-- `orientation_alignment`
-- `write_input_images`
-
-### `[presets]`
-
-List the preset names to test.
-
-These can be:
-
-- built-in `atlasspace` preset names like `baseline_syn_kimlab` or `tuned_syn_cc`
-- absolute paths to custom preset YAML files
-
-### `[templates.<name>]`
-
-Define the template images available for the sweep.
-
-### `[images.<name>]`
-
-Define the images to register.
-
-### `[image_to_template]`
-
-Map each image to one or more template names.
-
-Example:
-
-```toml
-[image_to_template]
-subject_101422 = ["ccfv3", "neun_v1"]
-subject_101425 = "ccfv3"
-```
-
-
-## 8. Edit `hpc.toml`
-
-This controls Slurm submission settings.
+### Edit `hpc.toml`
 
 Typical settings:
 
@@ -268,9 +202,7 @@ conda_env = "lsfm_data_processing"
 python_executable = "python"
 ```
 
-The workflow section should usually point to the config in the current project:
-
-### For batch
+For batch, the workflow section should usually be:
 
 ```toml
 [workflow]
@@ -280,16 +212,6 @@ dry_run = false
 job_name_prefix = "reg"
 ```
 
-### For sweep
-
-```toml
-[workflow]
-registration_config = "configs/sweep_register.toml"
-skip_if_output_exists = true
-dry_run = false
-job_name_prefix = "sweep"
-```
-
 Logs usually go to:
 
 ```toml
@@ -297,15 +219,8 @@ Logs usually go to:
 log_dir = "logs/registration"
 ```
 
-or for sweep:
 
-```toml
-[logging]
-log_dir = "logs/sweep_registration"
-```
-
-
-## 9. Launch Batch Registration on HPC
+### Launch batch registration on HPC
 
 Move into the project root:
 
@@ -322,7 +237,7 @@ conda activate lsfm_data_processing
 Run the batch submit script:
 
 ```bash
-bash /gpfs/Labs/Kim/shared_code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/hpc/submit_batch_register.sh
+bash /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/hpc/submit_batch_register.sh
 ```
 
 This script:
@@ -333,7 +248,95 @@ This script:
 - submits one Slurm job per subject
 
 
-## 10. Launch Sweep Registration on HPC
+### Typical batch output locations
+
+Outputs usually go under each subject folder:
+
+```text
+subjects/IEB0001/_01_registration/
+```
+
+If segmentation transform is enabled, template segmentations usually go to:
+
+```text
+subjects/IEB0001/_02_template_segmentations/
+```
+
+
+## Sweep Registration
+
+### Copy the config templates into the project
+
+```bash
+cp /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/sweep_register.toml \
+  /gpfs/Labs/Kim/Ingvild/my_registration_project/configs/sweep_register.toml
+
+cp /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/hpc.toml \
+  /gpfs/Labs/Kim/Ingvild/my_registration_project/configs/hpc.toml
+```
+
+
+### Edit `sweep_register.toml`
+
+Typical fields to check:
+
+#### `[run]`
+
+- `output_root`
+- `orientation_alignment`
+- `write_input_images`
+
+#### `[presets]`
+
+List the preset names to test.
+
+These can be:
+
+- built-in `atlasspace` preset names like `baseline_syn_kimlab` or `tuned_syn_cc`
+- absolute paths to custom preset YAML files
+
+#### `[templates.<name>]`
+
+Define the template images available for the sweep.
+
+#### `[images.<name>]`
+
+Define the images to register.
+
+#### `[image_to_template]`
+
+Map each image to one or more template names.
+
+Example:
+
+```toml
+[image_to_template]
+subject_101422 = ["ccfv3", "neun_v1"]
+subject_101425 = "ccfv3"
+```
+
+
+### Edit `hpc.toml`
+
+For sweep, the workflow section should usually be:
+
+```toml
+[workflow]
+registration_config = "configs/sweep_register.toml"
+skip_if_output_exists = true
+dry_run = false
+job_name_prefix = "sweep"
+```
+
+Sweep logs usually go to:
+
+```toml
+[logging]
+log_dir = "logs/sweep_registration"
+```
+
+
+### Launch sweep registration on HPC
 
 Move into the project root:
 
@@ -350,7 +353,7 @@ conda activate lsfm_data_processing
 Run the sweep submit script:
 
 ```bash
-bash /gpfs/Labs/Kim/shared_code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/hpc/submit_sweep_register.sh
+bash /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/hpc/submit_sweep_register.sh
 ```
 
 This script:
@@ -361,7 +364,21 @@ This script:
 - submits one Slurm job per sweep job
 
 
-## 11. Dry Run First
+### Typical sweep output locations
+
+Outputs go under the sweep `output_root`, for example:
+
+```text
+sweep_outputs/
+  subject_101422/
+    ccfv3/
+      baseline_syn_kimlab/
+```
+
+
+## General Tips
+
+### Dry run first
 
 Before submitting real jobs, it is often a good idea to set:
 
@@ -374,7 +391,7 @@ in `configs/hpc.toml`.
 Then rerun the submit command. This prints the `sbatch` commands without actually submitting jobs.
 
 
-## 12. Check Job Logs
+### Check job logs
 
 After submission, logs go to the folder specified in `configs/hpc.toml`, for example:
 
@@ -386,66 +403,56 @@ logs/sweep_registration/
 Each job will generate `.out` and `.err` files there.
 
 
-## 13. Typical Output Locations
-
-### Batch registration
-
-Outputs usually go under each subject folder:
-
-```text
-subjects/IEB0001/_01_registration/
-```
-
-If segmentation transform is enabled, template segmentations usually go to:
-
-```text
-subjects/IEB0001/_02_template_segmentations/
-```
-
-### Sweep registration
-
-Outputs go under the sweep `output_root`, for example:
-
-```text
-sweep_outputs/
-  subject_101422/
-    ccfv3/
-      baseline_syn_kimlab/
-```
-
-
-## 14. Update After Code Changes
-
-If `atlasspace` or `lsfm_data_processing` changes, update the shared checkout and reinstall:
-
-```bash
-cd /gpfs/Labs/Kim/shared_code/atlasspace
-git pull
-
-cd /gpfs/Labs/Kim/shared_code/lsfm_data_processing
-git pull
-
-conda activate lsfm_data_processing
-pip install /gpfs/Labs/Kim/shared_code/atlasspace
-pip install /gpfs/Labs/Kim/shared_code/lsfm_data_processing
-```
-
-
-## 15. Quick Checklist
+### Quick checklist
 
 Before launch, make sure:
 
 - your conda environment is activated
-- `atlasspace` is installed in that environment
-- `lsfm_data_processing` is installed in that environment
 - you are standing in the project root
-- `subjects/` exists
-- `configs/hpc.toml` exists
-- `configs/batch_register.toml` or `configs/sweep_register.toml` exists
-- all image/template paths in the config files are correct
 
 
-## 16. Current Workflow Design
+## Shared Code Maintenance
+
+This section is more developer-facing. Most users only need the sections above.
+
+### One-time shared code setup
+
+Choose a shared code location on HPC:
+
+```bash
+mkdir -p /gpfs/Labs/Kim/shared_registration/code
+cd /gpfs/Labs/Kim/shared_registration/code
+git clone https://github.com/ingvildeb/atlasspace.git
+git clone https://github.com/ingvildeb/lsfm_data_processing.git
+cd lsfm_data_processing
+git switch registration-beta
+```
+
+At the moment, `lsfm_data_processing` registration work lives on the `registration-beta` branch, so switch to that branch before installing.
+
+Once that branch is merged, these instructions can be simplified back to the default branch.
+
+
+### Update after code changes
+
+If `atlasspace` or `lsfm_data_processing` changes, update the shared checkout and reinstall:
+
+```bash
+cd /gpfs/Labs/Kim/shared_registration/code/atlasspace
+git pull
+
+cd /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing
+git fetch
+git switch registration-beta
+git pull
+
+conda activate lsfm_data_processing
+pip install /gpfs/Labs/Kim/shared_registration/code/atlasspace
+pip install /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing
+```
+
+
+## Current Workflow Design
 
 The current registration setup is intentionally split like this:
 
