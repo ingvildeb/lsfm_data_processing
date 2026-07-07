@@ -322,7 +322,7 @@ conda activate lsfm_data_processing
 Run the batch submit script:
 
 ```bash
-bash /gpfs/Labs/Kim/shared_code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/hpc/submit_batch_register.sh
+bash /gpfs/Labs/Kim/shared_registration/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/hpc/submit_batch_register.sh
 ```
 
 This script:
@@ -350,7 +350,7 @@ conda activate lsfm_data_processing
 Run the sweep submit script:
 
 ```bash
-bash /gpfs/Labs/Kim/shared_code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/hpc/submit_sweep_register.sh
+bash /gpfs/Labs/Kim/shared_registration/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/hpc/submit_sweep_register.sh
 ```
 
 This script:
