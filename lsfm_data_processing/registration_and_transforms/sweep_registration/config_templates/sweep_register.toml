@@ -1,45 +1,52 @@
 [run]
-output_root = "sweep_outputs"
-orientation_alignment = "fixed_to_moving"
-write_input_images = false
-
-[presets]
-names = [
+registration_presets = [
   "baseline_syn_kimlab",
   "tuned_syn_cc",
 ]
+orientation_alignment = "fixed_to_moving"
+write_input_images = false
+# Interpreted relative to this TOML file, so "../outputs/..." lands at the project root.
+output_root = "../outputs/sweep_registration"
 
-[templates.ccfv3]
+[image_defaults]
+orientation = "lsp"
+resolution_um = 20.0
+
+[moving_segmentations]
+enabled = false
+interpolation = "genericLabel"
+output_subdir = "moving_segmentations"
+write_intermediates = false
+
+[images.ccfv3]
 image = "Z:/path/to/ccfv3.nii.gz"
 space_name = "ccfv3"
-orientation = "lsp"
-resolution_um = 20.0
 
-[templates.neun_v1]
+[images.neun_v1]
 image = "Z:/path/to/neun_template_v1.nii.gz"
 space_name = "neun_v1"
-orientation = "lsp"
-resolution_um = 20.0
 
 [images.subject_101422]
 image = "Z:/path/to/101422/ch1_iso20um.nii.gz"
 space_name = "101422"
 orientation = "las"
-resolution_um = 20.0
+# Optional when [moving_segmentations].enabled = true and this image is moving:
+segmentations = { brain_mask = "Z:/path/to/101422/brain_mask.nii.gz" }
 
 [images.subject_101425]
 image = "Z:/path/to/101425/ch1_iso20um.nii.gz"
 space_name = "101425"
 orientation = "las"
-resolution_um = 20.0
 
 [images.pose_standardized_template_test]
 image = "Z:/path/to/template_variant_pose_standardized.nii.gz"
 space_name = "pose_standardized_template_test"
-orientation = "lsp"
-resolution_um = 20.0
 
-[image_to_template]
-subject_101422 = ["ccfv3", "neun_v1"]
-subject_101425 = "ccfv3"
-pose_standardized_template_test = "neun_v1"
+[sweep]
+shared_image = "ccfv3"
+shared_image_role = "fixed"
+run_images = [
+  "subject_101422",
+  "subject_101425",
+  "pose_standardized_template_test",
+]

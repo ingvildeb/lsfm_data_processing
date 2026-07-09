@@ -1,6 +1,28 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
+
+
+def _resolve_script_path() -> Path:
+    if "__file__" in globals():
+        return Path(__file__).resolve()
+
+    candidate = Path.cwd() / "registration_and_transforms" / "1_batch_register.py"
+    if candidate.exists():
+        return candidate.resolve()
+
+    raise RuntimeError(
+        "Could not resolve 1_batch_register.py. "
+        "Run this file as a script or launch the interactive session from the "
+        "lsfm_data_processing repo root."
+    )
+
+
+SCRIPT_PATH = _resolve_script_path()
+REPO_ROOT = SCRIPT_PATH.parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from lsfm_data_processing.registration_and_transforms._batch_register_core import (
     get_configured_subject_folders,
@@ -11,7 +33,7 @@ from lsfm_data_processing.registration_and_transforms._batch_register_core impor
 
 test_mode = False
 settings = load_batch_register_settings(
-    Path(__file__),
+    SCRIPT_PATH,
     "1_batch_register",
     test_mode=test_mode,
 )

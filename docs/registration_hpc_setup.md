@@ -282,11 +282,45 @@ Typical fields to check:
 
 #### `[run]`
 
+- `registration_presets`
 - `output_root`
 - `orientation_alignment`
 - `write_input_images`
 
-#### `[presets]`
+`output_root` is interpreted relative to the location of `sweep_register.toml`.
+If your config lives under `configs/`, using:
+
+```toml
+output_root = "../outputs/sweep_registration"
+```
+
+will place outputs under the project-root `outputs/` folder.
+
+#### `[image_defaults]`
+
+Optional shared defaults for images, most commonly:
+
+- `orientation`
+- `resolution_um`
+
+#### `[moving_segmentations]`
+
+Optional support for propagating one or more segmentation volumes from the moving image.
+
+Set:
+
+```toml
+enabled = true
+```
+
+if you want moving-image segmentations transformed after registration for whichever image is moving in each pair.
+
+Interpolation should usually be:
+
+- `genericLabel` for label maps and masks
+- `nearestNeighbor` only when you explicitly want nearest-neighbor resampling
+
+#### `[run].registration_presets`
 
 List the preset names to test.
 
@@ -295,24 +329,40 @@ These can be:
 - built-in `atlasspace` preset names like `baseline_syn_kimlab` or `tuned_syn_cc`
 - absolute paths to custom preset YAML files
 
-#### `[templates.<name>]`
-
-Define the template images available for the sweep.
-
 #### `[images.<name>]`
 
-Define the images to register.
+Define every image available to the sweep here, including:
 
-#### `[image_to_template]`
+- the shared image
+- all run images
 
-Map each image to one or more template names.
+You can also optionally define moving-image segmentations on individual images:
 
 Example:
 
 ```toml
-[image_to_template]
-subject_101422 = ["ccfv3", "neun_v1"]
-subject_101425 = "ccfv3"
+[images.subject_101422]
+image = "/gpfs/Labs/Kim/Ingvild/my_registration_project/subjects/subject_101422/ch1_iso20um.nii.gz"
+space_name = "subject_101422"
+orientation = "las"
+segmentations = { brain_mask = "/gpfs/Labs/Kim/Ingvild/my_registration_project/subjects/subject_101422/brain_mask.nii.gz" }
+```
+
+#### `[sweep]`
+
+This defines the one shared image for the sweep and which side of the registration it should occupy.
+
+- `shared_image`
+- `shared_image_role`
+- `run_images`
+
+Example:
+
+```toml
+[sweep]
+shared_image = "ccfv3"
+shared_image_role = "fixed"
+run_images = ["subject_101422", "subject_101425"]
 ```
 
 
@@ -360,7 +410,7 @@ This script:
 
 - reads `configs/hpc.toml`
 - reads `configs/sweep_register.toml`
-- expands all image/template/preset combinations
+- expands all shared-image/run-image/preset combinations
 - submits one Slurm job per sweep job
 
 
@@ -369,9 +419,9 @@ This script:
 Outputs go under the sweep `output_root`, for example:
 
 ```text
-sweep_outputs/
-  subject_101422/
-    ccfv3/
+outputs/
+  sweep_registration/
+    ccfv3__subject_101422/
       baseline_syn_kimlab/
 ```
 

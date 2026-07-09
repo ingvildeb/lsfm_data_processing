@@ -3,15 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 import shlex
 import subprocess
-import tomllib
 
 from lsfm_data_processing.registration_and_transforms._sweep_register_core import (
-    _pair_output_dir,
     get_sweep_job_specs,
     load_sweep_register_settings_from_path,
 )
 from lsfm_data_processing.utils.io_helpers import (
-    _normalize_backslashes_in_toml_strings,
+    load_toml_config,
     normalize_user_path,
     require_dir,
     require_file,
@@ -32,14 +30,6 @@ def _sanitize_job_component(value: str, max_length: int = 80) -> str:
     )
     return sanitized[:max_length]
 
-
-def _preset_job_component(preset_name: str) -> str:
-    preset_path = Path(preset_name)
-    if preset_path.suffix.lower() in {".yaml", ".yml"}:
-        return preset_path.stem
-    return preset_name
-
-
 def _registration_output_exists(output_dir: Path) -> bool:
     return (output_dir / "ANTsPy_Warped.nii.gz").exists()
 
@@ -49,9 +39,8 @@ def _build_sbatch_command(
     sbatch_script: Path,
     project_dir: Path,
     registration_config: Path,
-    image_key: str,
-    template_key: str,
-    preset_name: str,
+    job_name_component: str,
+    job_index: int,
     conda_env: str,
     python_executable: str,
     partition: str,
@@ -61,10 +50,7 @@ def _build_sbatch_command(
     log_dir: Path,
     job_name_prefix: str,
 ) -> list[str]:
-    preset_component = _preset_job_component(preset_name)
-    job_suffix = _sanitize_job_component(
-        f"{image_key}_{template_key}_{preset_component}",
-    )
+    job_suffix = _sanitize_job_component(job_name_component)
     job_name = f"{job_name_prefix}_{job_suffix}"
     return [
         "sbatch",
@@ -78,28 +64,15 @@ def _build_sbatch_command(
         str(sbatch_script),
         str(project_dir),
         str(registration_config),
-        image_key,
-        template_key,
-        preset_name,
+        str(job_index),
         conda_env,
         python_executable,
     ]
 
 
-def _load_hpc_cfg(config_path: Path) -> dict:
-    config_text = config_path.read_text(encoding="utf-8")
-    try:
-        return tomllib.loads(config_text)
-    except tomllib.TOMLDecodeError as exc:
-        if "Unescaped '\\' in a string" not in str(exc):
-            raise
-        normalized_text = _normalize_backslashes_in_toml_strings(config_text)
-        return tomllib.loads(normalized_text)
-
-
 project_dir = require_dir(Path.cwd(), "Project directory")
 hpc_config = require_file(project_dir / "configs" / "hpc.toml", "HPC config")
-cfg = _load_hpc_cfg(hpc_config)
+cfg = load_toml_config(hpc_config)
 
 cluster_cfg = cfg["cluster"]
 workflow_cfg = cfg["workflow"]
@@ -110,9 +83,6 @@ registration_config = _resolve_project_path(
 )
 registration_config = require_file(registration_config, "Sweep registration config")
 registration_settings = load_sweep_register_settings_from_path(registration_config)
-
-if not registration_settings.output_root.is_absolute():
-    registration_settings.output_root = project_dir / registration_settings.output_root
 
 log_dir = _resolve_project_path(project_dir, logging_cfg["log_dir"])
 log_dir.mkdir(parents=True, exist_ok=True)
@@ -142,36 +112,31 @@ skipped_jobs: list[str] = []
 
 print(f"Using HPC config: {hpc_config}")
 print(f"Using registration config: {registration_config}")
-print(f"Using registration presets: {', '.join(registration_settings.preset_names)}")
+print(
+    "Using registration presets: "
+    + ", ".join(dict.fromkeys(job_spec.preset_name for job_spec in job_specs))
+)
 print(f"Project directory: {project_dir}")
-print(f"Output root: {registration_settings.output_root}")
+print(f"Output root: {job_specs[0].output_dir.parent.parent.resolve(strict=False)}")
 print(f"Log directory: {log_dir}")
 print()
 
 for job_spec in job_specs:
-    output_dir = _pair_output_dir(
-        registration_settings,
-        image_key=job_spec.image_key,
-        template_key=job_spec.template_key,
-        preset_name=job_spec.preset_name,
-    )
-
-    if skip_if_output_exists and _registration_output_exists(output_dir):
-        label = (
-            f"{job_spec.image_key} -> {job_spec.template_key} "
-            f"({job_spec.preset_name})"
-        )
-        print(f"Skipping {label}: output already exists.")
-        skipped_jobs.append(label)
+    if skip_if_output_exists and _registration_output_exists(job_spec.output_dir):
+        print(f"Skipping {job_spec.label}: output already exists.")
+        skipped_jobs.append(job_spec.label)
         continue
 
     command = _build_sbatch_command(
         sbatch_script=sbatch_script,
         project_dir=project_dir,
         registration_config=registration_config,
-        image_key=job_spec.image_key,
-        template_key=job_spec.template_key,
-        preset_name=job_spec.preset_name,
+        job_name_component=(
+            f"{job_spec.moving_image_id}__"
+            f"{job_spec.fixed_image_id}__"
+            f"{job_spec.preset_name}"
+        ),
+        job_index=job_spec.job_index,
         conda_env=conda_env,
         python_executable=python_executable,
         partition=partition,
@@ -180,11 +145,6 @@ for job_spec in job_specs:
         time_limit=time_limit,
         log_dir=log_dir,
         job_name_prefix=job_name_prefix,
-    )
-
-    label = (
-        f"{job_spec.image_key} -> {job_spec.template_key} "
-        f"({job_spec.preset_name})"
     )
 
     if dry_run:
@@ -197,8 +157,8 @@ for job_spec in job_specs:
         capture_output=True,
         text=True,
     )
-    print(f"Submitted {label}: {completed.stdout.strip()}")
-    submitted_jobs.append(label)
+    print(f"Submitted {job_spec.label}: {completed.stdout.strip()}")
+    submitted_jobs.append(job_spec.label)
 
 print()
 print(f"Submission finished. Submitted: {len(submitted_jobs)}")

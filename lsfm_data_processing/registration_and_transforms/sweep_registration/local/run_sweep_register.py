@@ -32,19 +32,13 @@ def main() -> None:
     if successful_jobs:
         print("Successful jobs:")
         for result in successful_jobs:
-            print(
-                f"  - {result.image_key} -> {result.template_key} "
-                f"({result.preset_name})"
-            )
+            print(f"  - {result.label}")
 
     print(f"Failures: {len(failed_jobs)}")
     if failed_jobs:
         print("Failed jobs:")
         for result in failed_jobs:
-            print(
-                f"  - {result.image_key} -> {result.template_key} "
-                f"({result.preset_name})"
-            )
+            print(f"  - {result.label}")
 
 
 if __name__ == "__main__":

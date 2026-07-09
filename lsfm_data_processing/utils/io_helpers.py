@@ -1,7 +1,7 @@
+import re
+import tomllib
 from pathlib import Path
 from typing import Any
-import tomllib
-import re
 
 
 # -------------------------
@@ -162,6 +162,66 @@ def list_tiff_files(folder: Path) -> list[Path]:
 # CONFIG LOADER
 # -------------------------
 
+def load_toml_config(path: str | Path) -> dict[str, Any]:
+    """
+    Load a TOML file with recovery for unescaped Windows backslashes.
+
+    Parameters
+    ----------
+    path : str | Path
+        Path to the TOML file.
+
+    Returns
+    -------
+    dict[str, Any]
+        Parsed TOML configuration dictionary.
+    """
+    config_path = require_file(path, "Config file")
+    config_text = config_path.read_text(encoding="utf-8")
+
+    try:
+        return tomllib.loads(config_text)
+    except tomllib.TOMLDecodeError as exc:
+        if "Unescaped '\\' in a string" not in str(exc):
+            raise
+
+        normalized_text = _normalize_backslashes_in_toml_strings(config_text)
+        return tomllib.loads(normalized_text)
+
+
+def resolve_script_config_path(
+    script_path: Path,
+    config_basename: str,
+    test_mode: bool = False,
+) -> Path:
+    """
+    Resolve the config path using test/local/template precedence.
+    """
+    config_dir = script_path.parent / "configs"
+
+    test_path = config_dir / f"{config_basename}_test.toml"
+    local_path = config_dir / f"{config_basename}_local.toml"
+    template_path = config_dir / f"{config_basename}_template.toml"
+
+    if test_mode:
+        if not test_path.exists():
+            raise FileNotFoundError(
+                "Test mode is enabled but no test config was found.\n"
+                f"Expected:\n{test_path}"
+            )
+        config_path = test_path
+    else:
+        config_path = local_path if local_path.exists() else template_path
+
+    if not config_path.exists():
+        raise FileNotFoundError(
+            "No config file found.\n"
+            f"Expected:\n{local_path}\nOR\n{template_path}"
+        )
+
+    return config_path
+
+
 def load_script_config(script_path: Path, config_basename: str, test_mode: bool = False) -> dict[str, Any]:
     """
     Load a TOML configuration file using test/local/template precedence.
@@ -200,42 +260,8 @@ def load_script_config(script_path: Path, config_basename: str, test_mode: bool 
     tomllib.TOMLDecodeError
         If the TOML file is invalid.
     """
-    config_dir = script_path.parent / "configs"
-
-    test_path = config_dir / f"{config_basename}_test.toml"
-    local_path = config_dir / f"{config_basename}_local.toml"
-    template_path = config_dir / f"{config_basename}_template.toml"
-
-    if test_mode:
-        if not test_path.exists():
-            raise FileNotFoundError(
-                "Test mode is enabled but no test config was found.\n"
-                f"Expected:\n{test_path}"
-            )
-        config_path = test_path
-    else:
-        config_path = local_path if local_path.exists() else template_path
-
-    if not config_path.exists():
-        raise FileNotFoundError(
-            "No config file found.\n"
-            f"Expected:\n{local_path}\nOR\n{template_path}"
-        )
-
-    config_text = config_path.read_text(encoding="utf-8")
-
-    try:
-        cfg: dict[str, Any] = tomllib.loads(config_text)
-    except tomllib.TOMLDecodeError as exc:
-        if "Unescaped '\\' in a string" not in str(exc):
-            raise
-
-        # Recover from common Windows-path TOML mistakes like
-        # path = "Z:\folder\file.tif" by converting backslashes inside
-        # quoted strings to forward slashes before re-parsing.
-        normalized_text = _normalize_backslashes_in_toml_strings(config_text)
-        cfg = tomllib.loads(normalized_text)
-
+    config_path = resolve_script_config_path(script_path, config_basename, test_mode=test_mode)
+    cfg = load_toml_config(config_path)
     print(f"Using config: {config_path.name}")
     return cfg
 

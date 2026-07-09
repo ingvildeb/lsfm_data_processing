@@ -3,11 +3,9 @@ set -euo pipefail
 
 PROJECT_DIR="$1"
 REGISTRATION_CONFIG="$2"
-IMAGE_KEY="$3"
-TEMPLATE_KEY="$4"
-PRESET_NAME="$5"
-CONDA_ENV="$6"
-PYTHON_EXECUTABLE="$7"
+JOB_INDEX="$3"
+CONDA_ENV="$4"
+PYTHON_EXECUTABLE="$5"
 
 set +u
 source ~/.bashrc
@@ -21,6 +19,4 @@ cd "$PROJECT_DIR"
 
 "$PYTHON_EXECUTABLE" -m lsfm_data_processing.registration_and_transforms.sweep_registration.hpc.run_one_sweep_job \
   --registration-config "$REGISTRATION_CONFIG" \
-  --image-key "$IMAGE_KEY" \
-  --template-key "$TEMPLATE_KEY" \
-  --preset-name "$PRESET_NAME"
+  --job-index "$JOB_INDEX"
