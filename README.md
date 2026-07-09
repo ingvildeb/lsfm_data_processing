@@ -84,7 +84,7 @@ Each workflow is separated into:
 
 - `local/`: workstation/local execution entrypoints
 - `hpc/`: Slurm submission and per-job runners
-- `config_templates/`: starter TOML files to copy into a project `configs/` folder
+- `config_templates/`: workflow-specific starter files such as `hpc.toml`
 
 1. Clone `lsfm_data_processing` somewhere local and check out the working branch you intend to use:
 
@@ -134,20 +134,21 @@ For HPC sweep submission:
 bash /path/to/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/hpc/submit_sweep_register.sh
 ```
 
-Starter configs are shipped here:
+Starter configs are currently split like this:
 
-- `lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/batch_register.toml`
+- `atlasspace/src/atlasspace/config_templates/registration_batch_template.toml`
 - `lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/hpc.toml`
-- `lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/sweep_register.toml`
+- `atlasspace/src/atlasspace/config_templates/registration_sweep_template.toml`
 - `lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/hpc.toml`
 
 In `batch_register.toml`:
 
-- `registration_preset` can be either a built-in `atlasspace` preset name such as `tuned_syn_cc` or a path to a custom preset YAML file
-- `template_role` controls whether the shared template is treated as the moving or fixed image
+- `[run].registration_presets` should contain exactly one preset for batch mode
+- `[run].output_subdir` controls the registration folder created under each run image's parent folder
 - `orientation_alignment` controls whether registration inputs are reoriented before ANTs is run
-- `segmentation_transform.enabled = true` applies any template segmentations listed under `[templates.<name>.segmentations]` after registration
-- `subjects_dir` is typically just `"subjects"` when launched from the project root
+- `[batch].template_role` controls whether the shared template is treated as the moving or fixed image
+- `[moving_segmentations].enabled = true` propagates segmentations attached to whichever image is moving in each pair
+- image/template mappings are defined under `[images.<image_id>]` plus `[batch].image_to_template`
 
 In `hpc.toml`:
 

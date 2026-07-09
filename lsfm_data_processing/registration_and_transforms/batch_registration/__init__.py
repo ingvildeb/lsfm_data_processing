@@ -1,19 +1,31 @@
 from lsfm_data_processing.registration_and_transforms._batch_register_core import (
+    BatchJobSpec,
     BatchRegisterSettings,
+    BatchRunResult,
     SubjectRunResult,
+    get_batch_job_spec,
+    get_batch_job_specs,
     get_configured_subject_folders,
+    load_batch_register_settings,
     load_batch_register_settings_from_path,
+    run_batch_registration_for_job,
+    run_batch_registration_for_jobs,
     run_batch_registration_for_subject,
     run_batch_registration_for_subjects,
-    transform_template_segmentations_for_subject,
 )
 
 __all__ = [
+    "BatchJobSpec",
     "BatchRegisterSettings",
+    "BatchRunResult",
     "SubjectRunResult",
+    "get_batch_job_spec",
+    "get_batch_job_specs",
     "get_configured_subject_folders",
+    "load_batch_register_settings",
     "load_batch_register_settings_from_path",
+    "run_batch_registration_for_job",
+    "run_batch_registration_for_jobs",
     "run_batch_registration_for_subject",
     "run_batch_registration_for_subjects",
-    "transform_template_segmentations_for_subject",
 ]

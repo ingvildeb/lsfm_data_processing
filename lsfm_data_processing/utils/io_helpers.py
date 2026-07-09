@@ -176,6 +176,7 @@ class CanonicalConfigTemplate:
     resource_package: str
     resource_parts: tuple[str, ...]
     config_label: str = "Config"
+    compatible_template_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -404,7 +405,12 @@ def _build_template_staleness_warnings(
     ):
         return ()
 
-    if local_metadata.template_id != canonical_metadata.template_id:
+    accepted_template_ids = {
+        canonical_metadata.template_id,
+        *canonical_template.compatible_template_ids,
+    }
+
+    if local_metadata.template_id not in accepted_template_ids:
         return ()
 
     warning_messages: list[str] = []

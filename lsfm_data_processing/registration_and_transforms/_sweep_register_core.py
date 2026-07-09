@@ -21,9 +21,10 @@ from lsfm_data_processing.utils.io_helpers import (
 
 
 SWEEP_LOCAL_CANONICAL_TEMPLATE = CanonicalConfigTemplate(
-    resource_package="lsfm_data_processing.registration_and_transforms.sweep_registration",
-    resource_parts=("config_templates", "sweep_register.toml"),
+    resource_package="atlasspace.config_templates",
+    resource_parts=("registration_sweep_template.toml",),
     config_label="Sweep registration config",
+    compatible_template_ids=("registration_and_transforms/2_sweep_register",),
 )
 
 

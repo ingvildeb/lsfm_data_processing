@@ -25,9 +25,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from lsfm_data_processing.registration_and_transforms._batch_register_core import (
-    get_configured_subject_folders,
+    get_batch_job_specs,
     load_batch_register_settings,
-    run_batch_registration_for_subjects,
+    run_batch_registration_for_jobs,
 )
 
 
@@ -37,24 +37,24 @@ settings = load_batch_register_settings(
     "1_batch_register",
     test_mode=test_mode,
 )
-subject_folders = get_configured_subject_folders(settings)
-results = run_batch_registration_for_subjects(
+job_specs = get_batch_job_specs(settings)
+results = run_batch_registration_for_jobs(
     settings=settings,
-    subject_folders=subject_folders,
+    job_specs=job_specs,
 )
 
-successful_subjects = [result.subject_id for result in results if result.success]
-failed_subjects = [result.subject_id for result in results if not result.success]
+successful_jobs = [result for result in results if result.success]
+failed_jobs = [result for result in results if not result.success]
 
 print()
-print(f"Finished batch registration. Successes: {len(successful_subjects)}")
-if successful_subjects:
-    print("Successful subjects:")
-    for subject_id in successful_subjects:
-        print(f"  - {subject_id}")
+print(f"Finished batch registration. Successes: {len(successful_jobs)}")
+if successful_jobs:
+    print("Successful jobs:")
+    for result in successful_jobs:
+        print(f"  - {result.label}")
 
-print(f"Failures: {len(failed_subjects)}")
-if failed_subjects:
-    print("Failed subjects:")
-    for subject_id in failed_subjects:
-        print(f"  - {subject_id}")
+print(f"Failures: {len(failed_jobs)}")
+if failed_jobs:
+    print("Failed jobs:")
+    for result in failed_jobs:
+        print(f"  - {result.label}")

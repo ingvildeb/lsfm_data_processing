@@ -92,7 +92,7 @@ my_registration_project/
 ### Copy the config templates into the project
 
 ```bash
-cp /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/batch_register.toml \
+cp /gpfs/Labs/Kim/shared_registration/code/atlasspace/src/atlasspace/config_templates/registration_batch_template.toml \
   /gpfs/Labs/Kim/Ingvild/my_registration_project/configs/batch_register.toml
 
 cp /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/hpc.toml \
@@ -106,27 +106,34 @@ Typical fields to check:
 
 #### `[run]`
 
-- `registration_preset`
-- `template_role`
+- `registration_presets`
 - `output_subdir`
 - `orientation_alignment`
 - `write_input_images`
 
-#### `[subject_defaults]`
+`output_subdir` is written under the parent folder of each run image.
+If a run image is:
 
-- `subjects_dir = "subjects"`
-- `image_name`
-- `orientation`
-- `resolution_um`
-- `underscores_to_id`
-
-If your subject folders are just named by subject ID, for example `IEB0001`, set:
-
-```toml
-underscores_to_id = 0
+```text
+/gpfs/Labs/Kim/Ingvild/my_registration_project/subjects/IEB0001/ch1_iso20um.nii.gz
 ```
 
-#### `[segmentation_transform]`
+and `output_subdir = "_01_registration"`, outputs go to:
+
+```text
+/gpfs/Labs/Kim/Ingvild/my_registration_project/subjects/IEB0001/_01_registration/
+```
+
+Batch should define exactly one preset in `[run].registration_presets`.
+
+#### `[image_defaults]`
+
+Optional shared defaults for images, most commonly:
+
+- `orientation`
+- `resolution_um`
+
+#### `[moving_segmentations]`
 
 Set:
 
@@ -134,55 +141,81 @@ Set:
 enabled = true
 ```
 
-if you want template segmentations transformed after registration.
+if you want segmentations attached to the moving image transformed after registration.
 
-If you do not have any segmentations, set:
+Interpolation should usually be:
 
-```toml
-enabled = false
-```
+- `genericLabel` for masks and label volumes
+- `nearestNeighbor` only when you explicitly want nearest-neighbor resampling
 
-and remove any `[templates.<name>.segmentations]` section.
+If `output_subdir` is omitted under `[moving_segmentations]`, transformed segmentations
+are written into the same registration output folder.
 
-#### `[templates.<name>]`
-
-Define one or more templates here, including:
+#### `[images.<name>]`
 
 - `image`
-- `space_name`
-- `orientation`
-- `resolution_um`
+- optional `space_name`
+- optional `orientation`
+- optional `resolution_um`
 
-These can point into the shared lab template folder, for example:
+Define every image used by the batch here:
+
+- all run images
+- all template images
+
+Example:
 
 ```toml
-[templates.lsfm-neun-v1-p56]
+[images.IEB0001]
+image = "/gpfs/Labs/Kim/Ingvild/my_registration_project/subjects/IEB0001/ch1_iso20um.nii.gz"
+space_name = "IEB0001"
+orientation = "las"
+
+[images.lsfm-neun-v1-p56]
 image = "/gpfs/Labs/Kim/shared_registration/templates/neun_p56_v1/T_P56_NeuN_v1_20um.nii.gz"
 space_name = "lsfm-neun-v1-p56"
 orientation = "lsp"
 resolution_um = 20.0
 ```
 
-#### `[templates.<name>.segmentations]`
-
-Optional template segmentation files that should be transformed after registration.
-
-Example:
+You can optionally attach segmentations to whichever image may be moving:
 
 ```toml
-[templates.lsfm-neun-v1-p56.segmentations]
+[images.lsfm-neun-v1-p56.segmentations]
 labels = "/gpfs/Labs/Kim/shared_registration/templates/neun_p56_v1/L_P56_NeuN_v1_20um.nii.gz"
 mask = "/gpfs/Labs/Kim/shared_registration/templates/neun_p56_v1/L_P56_NeuN_v1_20um_mask.nii.gz"
 ```
 
-#### `[subject_to_template]`
+#### `[batch]`
 
-This maps each subject ID to the template name it should use.
+This defines how run images are paired to template images.
+
+Fields:
+
+- `template_role`
+- `image_to_template`
 
 Example:
 
 ```toml
-[subject_to_template]
+[batch]
+template_role = "moving"
+image_to_template = { IEB0001 = "lsfm-neun-v1-p56", IEB0002 = "lsfm-neun-v1-p56" }
+```
+
+Interpretation:
+
+- keys are run-image ids
+- values are template-image ids
+- `template_role` decides whether the template is treated as fixed or moving
+
+Equivalent TOML without inline braces is also fine:
+
+```toml
+[batch]
+template_role = "moving"
+
+[batch.image_to_template]
 "IEB0001" = "lsfm-neun-v1-p56"
 "IEB0002" = "lsfm-neun-v1-p56"
 ```
@@ -244,8 +277,8 @@ This script:
 
 - reads `configs/hpc.toml`
 - reads `configs/batch_register.toml`
-- finds the subjects to run
-- submits one Slurm job per subject
+- expands all batch image/template pairs
+- submits one Slurm job per batch job
 
 
 ### Typical batch output locations
@@ -256,10 +289,14 @@ Outputs usually go under each subject folder:
 subjects/IEB0001/_01_registration/
 ```
 
-If segmentation transform is enabled, template segmentations usually go to:
+If moving-segmentation propagation is enabled and no separate segmentation
+subdir is configured, those transformed segmentations are written into the same
+registration folder by default.
+
+If you explicitly set `[moving_segmentations].output_subdir`, they instead go to:
 
 ```text
-subjects/IEB0001/_02_template_segmentations/
+subjects/IEB0001/_01_registration/<your_subdir>/
 ```
 
 
@@ -268,7 +305,7 @@ subjects/IEB0001/_02_template_segmentations/
 ### Copy the config templates into the project
 
 ```bash
-cp /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/sweep_register.toml \
+cp /gpfs/Labs/Kim/shared_registration/code/atlasspace/src/atlasspace/config_templates/registration_sweep_template.toml \
   /gpfs/Labs/Kim/Ingvild/my_registration_project/configs/sweep_register.toml
 
 cp /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/hpc.toml \
