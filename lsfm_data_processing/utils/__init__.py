@@ -9,9 +9,11 @@ from .cellpose_io import (
 from .chunking import chunk_image, chunk_z_stack, get_avg_pixel_value
 from .image_ops import _raise_if_windows_path_too_long, convert_to_uint8, normalize_array
 from .io_helpers import (
+    CanonicalConfigTemplate,
     list_tiff_files,
     load_script_config,
     normalize_user_path,
+    prepare_script_config_path,
     require_dir,
     require_file,
     require_subpath,
@@ -34,6 +36,7 @@ __all__ = [
     "build_prediction_index",
     "chunk_image",
     "chunk_z_stack",
+    "CanonicalConfigTemplate",
     "convert_to_uint8",
     "create_cellpose_npy_dict",
     "create_mips_from_folder",
@@ -47,6 +50,7 @@ __all__ = [
     "get_underscore_token",
     "normalize_array",
     "normalize_user_path",
+    "prepare_script_config_path",
     "balanced_random_seed_selection",
     "greedy_region_coverage_select",
     "random_fill_selection",

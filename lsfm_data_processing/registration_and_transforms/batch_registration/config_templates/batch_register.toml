@@ -1,3 +1,6 @@
+# lsfm_template_id = registration_and_transforms/1_batch_register
+# lsfm_schema_version = 1
+# lsfm_template_revision = 2026-07-09
 [run]
 registration_preset = "tuned_syn_cc"
 template_role = "moving"   # use "moving" for template -> subject, "fixed" for subject -> template

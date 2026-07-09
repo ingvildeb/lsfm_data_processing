@@ -1,3 +1,6 @@
+# lsfm_template_id = registration_and_transforms/2_sweep_register
+# lsfm_schema_version = 1
+# lsfm_template_revision = 2026-07-09
 [run]
 registration_presets = [
   "baseline_syn_kimlab",

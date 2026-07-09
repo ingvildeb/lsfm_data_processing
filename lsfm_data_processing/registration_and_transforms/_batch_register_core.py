@@ -3,18 +3,25 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-import re
-import tomllib
 
 from atlasspace import ImageConfig, SpaceDefinition, registration, transforms
 
 from lsfm_data_processing.utils.io_helpers import (
+    CanonicalConfigTemplate,
+    load_toml_config,
     load_script_config,
     normalize_user_path,
     require_dir,
     require_file,
 )
 from lsfm_data_processing.utils.naming import get_underscore_token
+
+
+BATCH_LOCAL_CANONICAL_TEMPLATE = CanonicalConfigTemplate(
+    resource_package="lsfm_data_processing.registration_and_transforms.batch_registration",
+    resource_parts=("config_templates", "batch_register.toml"),
+    config_label="Batch registration config",
+)
 
 
 @dataclass
@@ -44,28 +51,6 @@ class SubjectRunResult:
     success: bool
     output_dir: Path | None
     error_message: str | None
-
-
-def _normalize_backslashes_in_toml_strings(config_text: str) -> str:
-    string_pattern = re.compile(r'"([^"\\]*(?:\\.[^"\\]*)*)"')
-
-    def replace_match(match: re.Match[str]) -> str:
-        string_content = match.group(1).replace("\\", "/")
-        return f'"{string_content}"'
-
-    return string_pattern.sub(replace_match, config_text)
-
-
-def _load_toml_dict(config_path: Path) -> dict[str, Any]:
-    config_text = config_path.read_text(encoding="utf-8")
-
-    try:
-        return tomllib.loads(config_text)
-    except tomllib.TOMLDecodeError as exc:
-        if "Unescaped '\\' in a string" not in str(exc):
-            raise
-        normalized_text = _normalize_backslashes_in_toml_strings(config_text)
-        return tomllib.loads(normalized_text)
 
 
 def _settings_from_cfg(cfg: dict[str, Any]) -> BatchRegisterSettings:
@@ -112,13 +97,15 @@ def load_batch_register_settings(
         script_path,
         config_basename,
         test_mode=test_mode,
+        canonical_template=BATCH_LOCAL_CANONICAL_TEMPLATE,
+        warn_on_stale=True,
     )
     return _settings_from_cfg(cfg)
 
 
 def load_batch_register_settings_from_path(config_path: Path) -> BatchRegisterSettings:
     resolved_path = require_file(config_path, "Batch registration config")
-    cfg = _load_toml_dict(resolved_path)
+    cfg = load_toml_config(resolved_path)
     return _settings_from_cfg(cfg)
 
 

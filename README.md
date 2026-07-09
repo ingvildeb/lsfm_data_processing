@@ -52,15 +52,12 @@ For local interactive use inside this repo, the familiar top-level scripts are s
 - `registration_and_transforms/1_batch_register.py`
 - `registration_and_transforms/2_sweep_register.py`
 
-with local config templates at:
-
-- `registration_and_transforms/configs/1_batch_register_template.toml`
-- `registration_and_transforms/configs/2_sweep_register_template.toml`
-
 These local scripts follow the same pattern as the rest of the repo:
-- copy `*_template.toml` to `*_local.toml`
+- on first run, the script creates a gitignored `*_local.toml`
+- that local config is bootstrapped from the canonical package template
+- bootstrapped local configs can warn later if the canonical template revision changes
 - edit the `_local` file
-- run the script from the repo
+- rerun the script from the repo
 
 Suggested project layout:
 

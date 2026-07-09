@@ -160,4 +160,5 @@ cython_debug/
 #.idea/
 # Config overrides and test configs
 **/configs/*_local.toml
+**/configs/*.new_template.toml
 **/configs/*_test.toml

@@ -13,9 +13,17 @@ if ATLASSPACE_SRC.exists() and str(ATLASSPACE_SRC) not in sys.path:
 from atlasspace import registration
 
 from lsfm_data_processing.utils.io_helpers import (
+    CanonicalConfigTemplate,
     load_toml_config,
+    prepare_script_config_path,
     require_file,
-    resolve_script_config_path,
+)
+
+
+SWEEP_LOCAL_CANONICAL_TEMPLATE = CanonicalConfigTemplate(
+    resource_package="lsfm_data_processing.registration_and_transforms.sweep_registration",
+    resource_parts=("config_templates", "sweep_register.toml"),
+    config_label="Sweep registration config",
 )
 
 
@@ -59,10 +67,12 @@ def load_sweep_register_settings(
     *,
     test_mode: bool = False,
 ) -> SweepRegisterSettings:
-    config_path = resolve_script_config_path(
+    config_path = prepare_script_config_path(
         script_path,
         config_basename,
         test_mode=test_mode,
+        canonical_template=SWEEP_LOCAL_CANONICAL_TEMPLATE,
+        warn_on_stale=True,
     )
     print(f"Using config: {config_path.name}")
     return load_sweep_register_settings_from_path(config_path)

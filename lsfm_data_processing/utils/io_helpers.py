@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from importlib import resources as importlib_resources
 import re
 import tomllib
 from pathlib import Path
@@ -162,6 +164,27 @@ def list_tiff_files(folder: Path) -> list[Path]:
 # CONFIG LOADER
 # -------------------------
 
+_TEMPLATE_METADATA_PATTERN = re.compile(
+    r"^\s*#\s*"
+    r"(?P<key>lsfm_template_id|lsfm_schema_version|lsfm_template_revision)"
+    r"\s*=\s*(?P<value>.+?)\s*$"
+)
+
+
+@dataclass(frozen=True)
+class CanonicalConfigTemplate:
+    resource_package: str
+    resource_parts: tuple[str, ...]
+    config_label: str = "Config"
+
+
+@dataclass(frozen=True)
+class TemplateMetadata:
+    template_id: str | None = None
+    schema_version: int | None = None
+    template_revision: str | None = None
+
+
 def load_toml_config(path: str | Path) -> dict[str, Any]:
     """
     Load a TOML file with recovery for unescaped Windows backslashes.
@@ -187,6 +210,69 @@ def load_toml_config(path: str | Path) -> dict[str, Any]:
 
         normalized_text = _normalize_backslashes_in_toml_strings(config_text)
         return tomllib.loads(normalized_text)
+
+
+def prepare_script_config_path(
+    script_path: Path,
+    config_basename: str,
+    *,
+    test_mode: bool = False,
+    canonical_template: CanonicalConfigTemplate | None = None,
+    warn_on_stale: bool = False,
+    write_stale_sidecar: bool = False,
+) -> Path:
+    """
+    Resolve a script config path and optionally bootstrap `_local.toml` from a
+    canonical package template.
+
+    When a canonical template is provided and no local config exists, the local
+    config is created and the process exits so the user can edit it before the
+    workflow runs.
+    """
+    config_dir = script_path.parent / "configs"
+
+    test_path = config_dir / f"{config_basename}_test.toml"
+    local_path = config_dir / f"{config_basename}_local.toml"
+    template_path = config_dir / f"{config_basename}_template.toml"
+
+    if test_mode:
+        if not test_path.exists():
+            raise FileNotFoundError(
+                "Test mode is enabled but no test config was found.\n"
+                f"Expected:\n{test_path}"
+            )
+        return test_path
+
+    if local_path.exists():
+        if canonical_template is not None and warn_on_stale:
+            for warning_message in _build_template_staleness_warnings(
+                local_path,
+                canonical_template,
+                write_stale_sidecar=write_stale_sidecar,
+            ):
+                print(warning_message)
+        return local_path
+
+    if canonical_template is not None:
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        local_path.write_text(
+            _read_canonical_template_text(canonical_template),
+            encoding="utf-8",
+        )
+        print(
+            f"Created local {canonical_template.config_label.lower()} "
+            f"from canonical template:\n{local_path}"
+        )
+        print("Edit this file and rerun the script.")
+        raise SystemExit(0)
+
+    if template_path.exists():
+        return template_path
+
+    raise FileNotFoundError(
+        "No config file found.\n"
+        f"Expected:\n{local_path}\nOR\n{template_path}"
+    )
 
 
 def resolve_script_config_path(
@@ -222,13 +308,23 @@ def resolve_script_config_path(
     return config_path
 
 
-def load_script_config(script_path: Path, config_basename: str, test_mode: bool = False) -> dict[str, Any]:
+def load_script_config(
+    script_path: Path,
+    config_basename: str,
+    test_mode: bool = False,
+    *,
+    canonical_template: CanonicalConfigTemplate | None = None,
+    warn_on_stale: bool = False,
+    write_stale_sidecar: bool = False,
+) -> dict[str, Any]:
     """
     Load a TOML configuration file using test/local/template precedence.
 
     The function searches for config files in a `configs/` folder located
     next to the script. It prefers a user-specific local config and falls
-    back to a committed template config.
+    back to a committed template config. When `canonical_template` is
+    provided, missing local configs can be bootstrapped automatically from
+    that canonical template.
 
     Search order
     ------------
@@ -247,6 +343,15 @@ def load_script_config(script_path: Path, config_basename: str, test_mode: bool 
         Base name of the config (without suffix).
     test_mode : bool, optional
         If True, require and load <basename>_test.toml.
+    canonical_template : CanonicalConfigTemplate | None, optional
+        Canonical package template used to bootstrap <basename>_local.toml when
+        it does not yet exist.
+    warn_on_stale : bool, optional
+        If True, compare local template metadata against the canonical template
+        and print warnings when the local config is stale.
+    write_stale_sidecar : bool, optional
+        If True and a stale local config is detected, write a fresh canonical
+        template next to the local config for comparison.
 
     Returns
     -------
@@ -260,10 +365,105 @@ def load_script_config(script_path: Path, config_basename: str, test_mode: bool 
     tomllib.TOMLDecodeError
         If the TOML file is invalid.
     """
-    config_path = resolve_script_config_path(script_path, config_basename, test_mode=test_mode)
+    config_path = prepare_script_config_path(
+        script_path,
+        config_basename,
+        test_mode=test_mode,
+        canonical_template=canonical_template,
+        warn_on_stale=warn_on_stale,
+        write_stale_sidecar=write_stale_sidecar,
+    )
     cfg = load_toml_config(config_path)
     print(f"Using config: {config_path.name}")
     return cfg
+
+
+def _build_template_staleness_warnings(
+    local_path: Path,
+    canonical_template: CanonicalConfigTemplate,
+    *,
+    write_stale_sidecar: bool,
+) -> tuple[str, ...]:
+    local_metadata = _extract_template_metadata(
+        local_path.read_text(encoding="utf-8")
+    )
+    canonical_text = _read_canonical_template_text(canonical_template)
+    canonical_metadata = _extract_template_metadata(canonical_text)
+
+    if (
+        canonical_metadata.template_id is None
+        or canonical_metadata.schema_version is None
+        or canonical_metadata.template_revision is None
+    ):
+        return ()
+
+    if (
+        local_metadata.template_id is None
+        or local_metadata.schema_version is None
+        or local_metadata.template_revision is None
+    ):
+        return ()
+
+    if local_metadata.template_id != canonical_metadata.template_id:
+        return ()
+
+    warning_messages: list[str] = []
+
+    if local_metadata.schema_version != canonical_metadata.schema_version:
+        warning_messages.append(
+            "Warning: "
+            f"{local_path.name} was created from schema version "
+            f"{local_metadata.schema_version}, but the current canonical template "
+            f"uses schema version {canonical_metadata.schema_version}. "
+            "Please review and update this local config manually."
+        )
+    elif local_metadata.template_revision != canonical_metadata.template_revision:
+        warning_messages.append(
+            "Warning: "
+            f"{local_path.name} was created from template revision "
+            f"{local_metadata.template_revision}, but the current canonical template "
+            f"revision is {canonical_metadata.template_revision}."
+        )
+
+    if warning_messages and write_stale_sidecar:
+        sidecar_path = _write_stale_template_sidecar(local_path, canonical_text)
+        warning_messages.append(
+            f"Wrote current canonical template for comparison:\n{sidecar_path}"
+        )
+
+    return tuple(warning_messages)
+
+
+def _extract_template_metadata(config_text: str) -> TemplateMetadata:
+    metadata_values: dict[str, str] = {}
+
+    for line in config_text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        if not stripped.startswith("#"):
+            break
+
+        match = _TEMPLATE_METADATA_PATTERN.match(line)
+        if match is None:
+            continue
+
+        metadata_values[match.group("key")] = match.group("value").strip()
+
+    schema_version: int | None = None
+    schema_version_value = metadata_values.get("lsfm_schema_version")
+    if schema_version_value is not None:
+        try:
+            schema_version = int(schema_version_value)
+        except ValueError:
+            schema_version = None
+
+    return TemplateMetadata(
+        template_id=metadata_values.get("lsfm_template_id"),
+        schema_version=schema_version,
+        template_revision=metadata_values.get("lsfm_template_revision"),
+    )
 
 
 def _normalize_backslashes_in_toml_strings(config_text: str) -> str:
@@ -280,3 +480,22 @@ def _normalize_backslashes_in_toml_strings(config_text: str) -> str:
         return f'"{string_content}"'
 
     return string_pattern.sub(replace_match, config_text)
+
+
+def _read_canonical_template_text(
+    canonical_template: CanonicalConfigTemplate,
+) -> str:
+    template_resource = importlib_resources.files(
+        canonical_template.resource_package
+    )
+    for resource_part in canonical_template.resource_parts:
+        template_resource = template_resource.joinpath(resource_part)
+    return template_resource.read_text(encoding="utf-8")
+
+
+def _write_stale_template_sidecar(local_path: Path, canonical_text: str) -> Path:
+    sidecar_path = local_path.with_name(
+        f"{local_path.stem}.new_template{local_path.suffix}"
+    )
+    sidecar_path.write_text(canonical_text, encoding="utf-8")
+    return sidecar_path
