@@ -21,7 +21,9 @@ git switch registration-beta
 python -m pip install --upgrade pip
 ```
 
-Install `atlasspace` from GitHub, then install this repo and its requirements:
+Install `atlasspace` from GitHub, then install this repo and its requirements.
+The `requirements.txt` file includes `-e .`, so this installs `lsfm_data_processing`
+from the checked-out `registration-beta` branch as an editable package:
 
 ```powershell
 python -m pip install "atlasspace @ git+https://github.com/ingvildeb/atlasspace.git"
