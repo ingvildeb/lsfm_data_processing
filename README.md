@@ -2,158 +2,58 @@
 
 Utilities and pipelines for LSFM preprocessing, chunk generation, atlas alignment support, and dataset management.
 
+## Registration branch setup
+
+The `registration-beta` branch contains the current registration and transform workflows built on
+[`atlasspace`](https://github.com/ingvildeb/atlasspace). Use a dedicated environment for this branch:
+
+```powershell
+conda create --name lsfm_registration python=3.11
+conda activate lsfm_registration
+```
+
+Clone and install this branch:
+
+```powershell
+git clone https://github.com/ingvildeb/lsfm_data_processing.git
+cd lsfm_data_processing
+git switch registration-beta
+python -m pip install --upgrade pip
+```
+
+Install `atlasspace` from GitHub, then install this repo and its requirements:
+
+```powershell
+python -m pip install "atlasspace @ git+https://github.com/ingvildeb/atlasspace.git"
+python -m pip install -r requirements.txt
+```
+
+Test the registration imports:
+
+```powershell
+python -c "import atlasspace, lsfm_data_processing; print('imports ok')"
+python -c "from lsfm_data_processing.registration_and_transforms._batch_register_core import load_batch_register_settings_from_path; print('registration imports ok')"
+```
+
 ## Repository layout
 
 - `preprocess_for_cellpose/`: pre-process data for segmentation and build Cellpose training datasets from stitched TIFF images
 - `preprocess_for_ants/`: build and apply NIfTI brain masks (ANTs-oriented prep)
-- `registration_and_transforms/`: legacy top-level wrappers around the installed registration workflows built on `atlasspace`
 - `data_eval_and_management/`: one-off scripts for normalization tuning and batch visual QC
 - `utils/`: shared helpers used by multiple scripts
 - `archived_and_test/`: older/testing utilities
 
 # Get started
-1. Create and activate a conda environment:
-
-```powershell
-conda create --name lsfm_data_processing python=3.11
-conda activate lsfm_data_processing
-```
-
-2. Install this repo's Python requirements from the repo root:
-
-```powershell
-pip install -r requirements.txt
-```
-
-3. If you are using the registration workflows, install `atlasspace` separately:
-
-```powershell
-cd C:\path\to\atlasspace
-pip install .
-```
-
-4. For any script you want to use, make a copy of the corresponding config template and edit it for your dataset.
-6. Run the corresponding script using your preferred software (e.g. VSCode) or in the terminal with Python from repo root, e.g.:
+1. Create a conda environment with: conda create --name lsfm_data_processing python=3.11
+2. Pip install the following packages: pip install numpy tifffile imagecodecs pillow opencv-python nibabel scipy matplotlib
+3. For any script you want to use, make a copy of the corresponding config file (`*_template.toml`) and rename it to `*_local.toml`
+4. Edit `*_local.toml` with paths/parameters for your dataset.
+5. Run the corresponding script using your preferred software (e.g. VSCode) or in the terminal with Python from repo root, e.g.:
 
 ```powershell
 python preprocess_for_cellpose/1_preprocess_data.py
 python preprocess_for_cellpose/2_select_representative_sections.py
 ```
-
-## Registration workflow setup
-For the current registration and transform workflows, the recommended model is:
-
-- install `lsfm_data_processing` and `atlasspace` into the environment
-- keep each registration project as a small folder containing `subjects/`, `configs/`, and `logs/`
-- use the installed workflow code from the environment rather than copying script bundles into each project
-
-For local interactive use inside this repo, the familiar top-level scripts are still available:
-
-- `registration_and_transforms/1_batch_register.py`
-- `registration_and_transforms/2_sweep_register.py`
-
-These local scripts follow the same pattern as the rest of the repo:
-- on first run, the script creates a gitignored `*_local.toml`
-- that local config is bootstrapped from the canonical package template
-- bootstrapped local configs can warn later if the canonical template revision changes
-- edit the `_local` file
-- rerun the script from the repo
-
-Suggested project layout:
-
-```text
-my_registration_project/
-  subjects/
-    IEB0001/
-    IEB0002/
-  configs/
-    batch_register.toml
-    hpc.toml
-    registration_presets/
-      my_custom.yaml
-  logs/
-    registration/
-```
-
-The installed workflow code now lives under:
-
-- `lsfm_data_processing/registration_and_transforms/batch_registration/`
-- `lsfm_data_processing/registration_and_transforms/sweep_registration/`
-
-Each workflow is separated into:
-
-- `local/`: workstation/local execution entrypoints
-- `hpc/`: Slurm submission and per-job runners
-- `config_templates/`: workflow-specific starter files such as `hpc.toml`
-
-1. Clone `lsfm_data_processing` somewhere local and check out the working branch you intend to use:
-
-```powershell
-cd C:\Users\YourName\Documents\GitHub
-git clone https://github.com/ingvildeb/lsfm_data_processing.git
-cd lsfm_data_processing
-# Example:
-git switch registration-beta
-```
-
-2. Clone `atlasspace` somewhere local as a separate repo:
-
-```powershell
-cd C:\Users\YourName\Documents\GitHub
-git clone https://github.com/ingvildeb/atlasspace.git
-```
-
-3. Create and activate the `lsfm_data_processing` conda environment.
-4. Run `pip install -r requirements.txt` from this repo.
-5. Run `pip install .` from this repo.
-6. Run `pip install .` from your `atlasspace` repo.
-
-This keeps `lsfm_data_processing` as the lab-facing workflow repo while letting the registration workflows import the installed `atlasspace` code directly.
-
-For local batch registration from an installed package project root:
-
-```powershell
-python -m lsfm_data_processing.registration_and_transforms.batch_registration.local.run_batch_register
-```
-
-For HPC batch submission from a project root on the cluster:
-
-```bash
-bash /path/to/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/hpc/submit_batch_register.sh
-```
-
-For local sweep registration from an installed package project root:
-
-```powershell
-python -m lsfm_data_processing.registration_and_transforms.sweep_registration.local.run_sweep_register
-```
-
-For HPC sweep submission:
-
-```bash
-bash /path/to/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/hpc/submit_sweep_register.sh
-```
-
-Starter configs are currently split like this:
-
-- `atlasspace/src/atlasspace/config_templates/registration_batch_template.toml`
-- `lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/hpc.toml`
-- `atlasspace/src/atlasspace/config_templates/registration_sweep_template.toml`
-- `lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/hpc.toml`
-
-In `batch_register.toml`:
-
-- `[run].registration_presets` should contain exactly one preset for batch mode
-- `[run].output_subdir` controls the registration folder created under each run image's parent folder
-- `orientation_alignment` controls whether registration inputs are reoriented before ANTs is run
-- `[batch].template_role` controls whether the shared template is treated as the moving or fixed image
-- `[moving_segmentations].enabled = true` propagates segmentations attached to whichever image is moving in each pair
-- image/template mappings are defined under `[images.<image_id>]` plus `[batch].image_to_template`
-
-In `hpc.toml`:
-
-- `registration_config` should usually point to `configs/batch_register.toml` or `configs/sweep_register.toml`
-- the submitters assume you launch from the project root, so no separate `project_dir` field is needed
 
 ## Important note about file naming
 Many of the scripts expect specific filename token positions (underscore-delimited naming), for example to extract z levels, subject id, etcetera. Indexing settings in template configs are according to Kim lab naming conventions, but can always be modified in the config files to match your patterns as long as you use an underscore-separated file naming convention. Feel free to open an issue if you have any questions about making these scripts work for your own data!
