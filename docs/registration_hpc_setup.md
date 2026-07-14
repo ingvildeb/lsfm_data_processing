@@ -1,15 +1,16 @@
 # HPC Registration Setup
 
-This guide is for Kim lab users who want to run `lsfm_data_processing` registration workflows on HPC.
+This guide describes how to deploy and launch `lsfm_data_processing` registration workflows on a Slurm-based HPC
+system. The paths below are examples. Replace `/path/to/...` with the paths used on your cluster.
 
-## Installation
+For the batch and sweep registration TOML fields themselves, see `docs/registration_config_setup.md`.
 
-### Shared folder layout
+## Shared Folder Layout
 
-Shared scripts and templates are found under:
+If your group maintains a shared checkout of the registration code and templates, a useful layout is:
 
 ```text
-/gpfs/Labs/Kim/shared_registration/
+/path/to/shared_registration/
   code/
     atlasspace/
     lsfm_data_processing/
@@ -17,50 +18,41 @@ Shared scripts and templates are found under:
     ...
 ```
 
-The `code/` folder is for the shared source repos.
-The `templates/` folder is for lab-shared template and label sets.
+The `code/` folder contains source checkouts. The `templates/` folder contains shared template images, label volumes,
+and masks.
 
+## Create A Conda Environment
 
-### Create your conda environment
-
-Each user should create and use their own environment.
-
-Example:
+Each user should create and use their own environment:
 
 ```bash
 conda create --name lsfm_data_processing python=3.11
 conda activate lsfm_data_processing
 ```
 
+## Install The Packages
 
-### Install the packages into your environment
-
-Install from the shared source folders.
-
-Recommended stable install:
+If your HPC has shared source checkouts, install from those folders:
 
 ```bash
-pip install /gpfs/Labs/Kim/shared_registration/code/atlasspace
-pip install /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing
+pip install /path/to/shared_registration/code/atlasspace
+pip install /path/to/shared_registration/code/lsfm_data_processing
 ```
 
 This is a non-editable local install:
 
 - the package is installed from a local folder, not from PyPI
-- later edits to the source repo do not affect your environment until you reinstall
+- later edits to the source checkout do not affect your environment until you reinstall
 
-You can verify imports with:
+Verify imports with:
 
 ```bash
 python -c "import atlasspace; import lsfm_data_processing; print('Imports OK')"
 ```
 
+## Create A Registration Project
 
-## Batch Registration
-
-### Create a registration project folder
-
-Each project should be a small, clean folder with this structure:
+Each project should be a small, clean folder with configs, logs, and subject inputs:
 
 ```text
 my_registration_project/
@@ -72,162 +64,51 @@ my_registration_project/
 Example:
 
 ```bash
-mkdir -p /gpfs/Labs/Kim/Ingvild/my_registration_project/subjects
-mkdir -p /gpfs/Labs/Kim/Ingvild/my_registration_project/configs
-mkdir -p /gpfs/Labs/Kim/Ingvild/my_registration_project/logs
+mkdir -p /path/to/my_registration_project/subjects
+mkdir -p /path/to/my_registration_project/configs
+mkdir -p /path/to/my_registration_project/logs
 ```
 
-Put your subject folders inside `subjects/`, for example:
+Put subject folders inside `subjects/`, for example:
 
 ```text
 my_registration_project/
   subjects/
-    IEB0001/
+    subject_001/
       ch1_iso20um.nii.gz
-    IEB0002/
+    subject_002/
       ch1_iso20um.nii.gz
 ```
 
+## Copy Config Templates
 
-### Copy the config templates into the project
+For batch registration:
 
 ```bash
-cp /gpfs/Labs/Kim/shared_registration/code/atlasspace/src/atlasspace/config_templates/registration_batch_template.toml \
-  /gpfs/Labs/Kim/Ingvild/my_registration_project/configs/batch_register.toml
+cp /path/to/shared_registration/code/atlasspace/src/atlasspace/config_templates/registration_batch_template.toml \
+  /path/to/my_registration_project/configs/batch_register.toml
 
-cp /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/hpc.toml \
-  /gpfs/Labs/Kim/Ingvild/my_registration_project/configs/hpc.toml
+cp /path/to/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/hpc.toml \
+  /path/to/my_registration_project/configs/hpc.toml
 ```
 
+For sweep registration:
 
-### Edit `batch_register.toml`
+```bash
+cp /path/to/shared_registration/code/atlasspace/src/atlasspace/config_templates/registration_sweep_template.toml \
+  /path/to/my_registration_project/configs/sweep_register.toml
 
-Typical fields to check:
-
-#### `[run]`
-
-- `registration_presets`
-- `output_subdir`
-- `orientation_alignment`
-- `write_input_images`
-
-`output_subdir` is written under the parent folder of each run image.
-If a run image is:
-
-```text
-/gpfs/Labs/Kim/Ingvild/my_registration_project/subjects/IEB0001/ch1_iso20um.nii.gz
+cp /path/to/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/hpc.toml \
+  /path/to/my_registration_project/configs/hpc.toml
 ```
 
-and `output_subdir = "_01_registration"`, outputs go to:
+## Edit `hpc.toml`
 
-```text
-/gpfs/Labs/Kim/Ingvild/my_registration_project/subjects/IEB0001/_01_registration/
-```
-
-Batch should define exactly one preset in `[run].registration_presets`.
-
-#### `[image_defaults]`
-
-Optional shared defaults for images, most commonly:
-
-- `orientation`
-- `resolution_um`
-
-#### `[moving_segmentations]`
-
-Set:
-
-```toml
-enabled = true
-```
-
-if you want segmentations attached to the moving image transformed after registration.
-
-Interpolation should usually be:
-
-- `genericLabel` for masks and label volumes
-- `nearestNeighbor` only when you explicitly want nearest-neighbor resampling
-
-If `output_subdir` is omitted under `[moving_segmentations]`, transformed segmentations
-are written into the same registration output folder.
-
-#### `[images.<name>]`
-
-- `image`
-- optional `space_name`
-- optional `orientation`
-- optional `resolution_um`
-
-Define every image used by the batch here:
-
-- all run images
-- all template images
-
-Example:
-
-```toml
-[images.IEB0001]
-image = "/gpfs/Labs/Kim/Ingvild/my_registration_project/subjects/IEB0001/ch1_iso20um.nii.gz"
-space_name = "IEB0001"
-orientation = "las"
-
-[images.lsfm-neun-v1-p56]
-image = "/gpfs/Labs/Kim/shared_registration/templates/neun_p56_v1/T_P56_NeuN_v1_20um.nii.gz"
-space_name = "lsfm-neun-v1-p56"
-orientation = "lsp"
-resolution_um = 20.0
-```
-
-You can optionally attach segmentations to whichever image may be moving:
-
-```toml
-[images.lsfm-neun-v1-p56.segmentations]
-labels = "/gpfs/Labs/Kim/shared_registration/templates/neun_p56_v1/L_P56_NeuN_v1_20um.nii.gz"
-mask = "/gpfs/Labs/Kim/shared_registration/templates/neun_p56_v1/L_P56_NeuN_v1_20um_mask.nii.gz"
-```
-
-#### `[batch]`
-
-This defines how run images are paired to template images.
-
-Fields:
-
-- `template_role`
-- `image_to_template`
-
-Example:
-
-```toml
-[batch]
-template_role = "moving"
-image_to_template = { IEB0001 = "lsfm-neun-v1-p56", IEB0002 = "lsfm-neun-v1-p56" }
-```
-
-Interpretation:
-
-- keys are run-image ids
-- values are template-image ids
-- `template_role` decides whether the template is treated as fixed or moving
-
-Equivalent TOML without inline braces is also fine:
-
-```toml
-[batch]
-template_role = "moving"
-
-[batch.image_to_template]
-"IEB0001" = "lsfm-neun-v1-p56"
-"IEB0002" = "lsfm-neun-v1-p56"
-```
-
-
-### Edit `hpc.toml`
-
-Typical settings:
+Example cluster settings:
 
 ```toml
 [cluster]
-partition = "compute"
+partition = "your_partition"
 cpus_per_task = 12
 mem_gb = 128
 time = "24:00:00"
@@ -235,30 +116,41 @@ conda_env = "lsfm_data_processing"
 python_executable = "python"
 ```
 
-For batch, the workflow section should usually be:
+For batch registration:
 
 ```toml
 [workflow]
 registration_config = "configs/batch_register.toml"
 skip_if_output_exists = true
-dry_run = false
+dry_run = true
 job_name_prefix = "reg"
-```
 
-Logs usually go to:
-
-```toml
 [logging]
 log_dir = "logs/registration"
 ```
 
+For sweep registration:
 
-### Launch batch registration on HPC
+```toml
+[workflow]
+registration_config = "configs/sweep_register.toml"
+skip_if_output_exists = true
+dry_run = true
+job_name_prefix = "sweep"
+
+[logging]
+log_dir = "logs/sweep_registration"
+```
+
+Start with `dry_run = true`. After the printed `sbatch` commands look correct, set `dry_run = false` and rerun the
+submit command.
+
+## Launch Batch Registration
 
 Move into the project root:
 
 ```bash
-cd /gpfs/Labs/Kim/Ingvild/my_registration_project
+cd /path/to/my_registration_project
 ```
 
 Activate your environment:
@@ -270,165 +162,18 @@ conda activate lsfm_data_processing
 Run the batch submit script:
 
 ```bash
-bash /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/hpc/submit_batch_register.sh
+bash /path/to/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/hpc/submit_batch_register.sh
 ```
 
-This script:
+The script reads `configs/hpc.toml`, reads the registration config listed in `[workflow].registration_config`, expands
+the batch jobs, and submits one Slurm job per registration.
 
-- reads `configs/hpc.toml`
-- reads `configs/batch_register.toml`
-- expands all batch image/template pairs
-- submits one Slurm job per batch job
-
-
-### Typical batch output locations
-
-Outputs usually go under each subject folder:
-
-```text
-subjects/IEB0001/_01_registration/
-```
-
-If moving-segmentation propagation is enabled and no separate segmentation
-subdir is configured, those transformed segmentations are written into the same
-registration folder by default.
-
-If you explicitly set `[moving_segmentations].output_subdir`, they instead go to:
-
-```text
-subjects/IEB0001/_01_registration/<your_subdir>/
-```
-
-
-## Sweep Registration
-
-### Copy the config templates into the project
-
-```bash
-cp /gpfs/Labs/Kim/shared_registration/code/atlasspace/src/atlasspace/config_templates/registration_sweep_template.toml \
-  /gpfs/Labs/Kim/Ingvild/my_registration_project/configs/sweep_register.toml
-
-cp /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/hpc.toml \
-  /gpfs/Labs/Kim/Ingvild/my_registration_project/configs/hpc.toml
-```
-
-
-### Edit `sweep_register.toml`
-
-Typical fields to check:
-
-#### `[run]`
-
-- `registration_presets`
-- `output_root`
-- `orientation_alignment`
-- `write_input_images`
-
-`output_root` is interpreted relative to the location of `sweep_register.toml`.
-If your config lives under `configs/`, using:
-
-```toml
-output_root = "../outputs/sweep_registration"
-```
-
-will place outputs under the project-root `outputs/` folder.
-
-#### `[image_defaults]`
-
-Optional shared defaults for images, most commonly:
-
-- `orientation`
-- `resolution_um`
-
-#### `[moving_segmentations]`
-
-Optional support for propagating one or more segmentation volumes from the moving image.
-
-Set:
-
-```toml
-enabled = true
-```
-
-if you want moving-image segmentations transformed after registration for whichever image is moving in each pair.
-
-Interpolation should usually be:
-
-- `genericLabel` for label maps and masks
-- `nearestNeighbor` only when you explicitly want nearest-neighbor resampling
-
-#### `[run].registration_presets`
-
-List the preset names to test.
-
-These can be:
-
-- built-in `atlasspace` preset names like `baseline_syn_kimlab` or `tuned_syn_cc`
-- absolute paths to custom preset YAML files
-
-#### `[images.<name>]`
-
-Define every image available to the sweep here, including:
-
-- the shared image
-- all run images
-
-You can also optionally define moving-image segmentations on individual images:
-
-Example:
-
-```toml
-[images.subject_101422]
-image = "/gpfs/Labs/Kim/Ingvild/my_registration_project/subjects/subject_101422/ch1_iso20um.nii.gz"
-space_name = "subject_101422"
-orientation = "las"
-segmentations = { brain_mask = "/gpfs/Labs/Kim/Ingvild/my_registration_project/subjects/subject_101422/brain_mask.nii.gz" }
-```
-
-#### `[sweep]`
-
-This defines the one shared image for the sweep and which side of the registration it should occupy.
-
-- `shared_image`
-- `shared_image_role`
-- `run_images`
-
-Example:
-
-```toml
-[sweep]
-shared_image = "ccfv3"
-shared_image_role = "fixed"
-run_images = ["subject_101422", "subject_101425"]
-```
-
-
-### Edit `hpc.toml`
-
-For sweep, the workflow section should usually be:
-
-```toml
-[workflow]
-registration_config = "configs/sweep_register.toml"
-skip_if_output_exists = true
-dry_run = false
-job_name_prefix = "sweep"
-```
-
-Sweep logs usually go to:
-
-```toml
-[logging]
-log_dir = "logs/sweep_registration"
-```
-
-
-### Launch sweep registration on HPC
+## Launch Sweep Registration
 
 Move into the project root:
 
 ```bash
-cd /gpfs/Labs/Kim/Ingvild/my_registration_project
+cd /path/to/my_registration_project
 ```
 
 Activate your environment:
@@ -440,45 +185,13 @@ conda activate lsfm_data_processing
 Run the sweep submit script:
 
 ```bash
-bash /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/hpc/submit_sweep_register.sh
+bash /path/to/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/hpc/submit_sweep_register.sh
 ```
 
-This script:
+The script reads `configs/hpc.toml`, reads the registration config listed in `[workflow].registration_config`, expands
+the sweep jobs, and submits one Slurm job per registration.
 
-- reads `configs/hpc.toml`
-- reads `configs/sweep_register.toml`
-- expands all shared-image/run-image/preset combinations
-- submits one Slurm job per sweep job
-
-
-### Typical sweep output locations
-
-Outputs go under the sweep `output_root`, for example:
-
-```text
-outputs/
-  sweep_registration/
-    ccfv3__subject_101422/
-      baseline_syn_kimlab/
-```
-
-
-## General Tips
-
-### Dry run first
-
-Before submitting real jobs, it is often a good idea to set:
-
-```toml
-dry_run = true
-```
-
-in `configs/hpc.toml`.
-
-Then rerun the submit command. This prints the `sbatch` commands without actually submitting jobs.
-
-
-### Check job logs
+## Check Logs
 
 After submission, logs go to the folder specified in `configs/hpc.toml`, for example:
 
@@ -487,71 +200,13 @@ logs/registration/
 logs/sweep_registration/
 ```
 
-Each job will generate `.out` and `.err` files there.
+Each job writes `.out` and `.err` files there.
 
+## Quick Checklist
 
-### Quick checklist
-
-Before launch, make sure:
+Before launching real jobs, make sure:
 
 - your conda environment is activated
 - you are standing in the project root
-
-
-## Shared Code Maintenance
-
-This section is more developer-facing. Most users only need the sections above.
-
-### One-time shared code setup
-
-Choose a shared code location on HPC:
-
-```bash
-mkdir -p /gpfs/Labs/Kim/shared_registration/code
-cd /gpfs/Labs/Kim/shared_registration/code
-git clone https://github.com/ingvildeb/atlasspace.git
-git clone https://github.com/ingvildeb/lsfm_data_processing.git
-cd lsfm_data_processing
-git switch registration-beta
-```
-
-At the moment, `lsfm_data_processing` registration work lives on the `registration-beta` branch, so switch to that branch before installing.
-
-Once that branch is merged, these instructions can be simplified back to the default branch.
-
-
-### Update after code changes
-
-If `atlasspace` or `lsfm_data_processing` changes, update the shared checkout and reinstall:
-
-```bash
-cd /gpfs/Labs/Kim/shared_registration/code/atlasspace
-git pull
-
-cd /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing
-git fetch
-git switch registration-beta
-git pull
-
-conda activate lsfm_data_processing
-pip install /gpfs/Labs/Kim/shared_registration/code/atlasspace
-pip install /gpfs/Labs/Kim/shared_registration/code/lsfm_data_processing
-```
-
-
-## Current Workflow Design
-
-The current registration setup is intentionally split like this:
-
-- local workstation use:
-  - repo-top scripts under `registration_and_transforms/`
-  - `_template.toml` copied to `_local.toml`
-- HPC use:
-  - installed package workflow code
-  - project-root `configs/`
-  - shell launchers under the installed package
-
-This is deliberate:
-
-- it keeps local use consistent with the rest of `lsfm_data_processing`
-- it keeps HPC projects cleaner and easier to reuse
+- `configs/hpc.toml` points to the intended registration config
+- `dry_run = true` has been tested at least once

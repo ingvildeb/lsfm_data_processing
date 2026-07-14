@@ -11,7 +11,7 @@ For a project-specific preset, start by copying a built-in preset into your proj
 ```bash
 mkdir -p /path/to/your_registration_project/configs/registration_presets
 
-cp /gpfs/Labs/Kim/shared_registration/code/atlasspace/src/atlasspace/presets/registration/tuned_syn_cc.yaml \
+cp /path/to/atlasspace/src/atlasspace/presets/registration/tuned_syn_cc.yaml \
   /path/to/your_registration_project/configs/registration_presets/my_tuned_syn.yaml
 ```
 
