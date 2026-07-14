@@ -12,9 +12,10 @@ conda create --name lsfm_registration python=3.11
 conda activate lsfm_registration
 ```
 
-Clone and install this branch:
+Navigate to the folder where you keep GitHub checkouts, then clone and install this branch:
 
 ```powershell
+cd C:\Users\YourName\Documents\GitHub
 git clone https://github.com/ingvildeb/lsfm_data_processing.git
 cd lsfm_data_processing
 git switch registration-beta
