@@ -35,6 +35,20 @@ def _registration_output_exists(output_dir: Path) -> bool:
     return (output_dir / "ANTsPy_Warped.nii.gz").exists()
 
 
+def _normalize_excluded_nodes(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise TypeError("cluster.exclude_nodes must be a TOML array of node names.")
+
+    nodes = tuple(str(node).strip() for node in value)
+    if any(not node for node in nodes):
+        raise ValueError("cluster.exclude_nodes must not contain empty node names.")
+    if len(nodes) != len(set(nodes)):
+        raise ValueError("cluster.exclude_nodes must not contain duplicate node names.")
+    return nodes
+
+
 def _build_sbatch_command(
     *,
     sbatch_script: Path,
@@ -48,17 +62,22 @@ def _build_sbatch_command(
     cpus_per_task: int,
     mem_gb: int,
     time_limit: str,
+    excluded_nodes: tuple[str, ...],
     log_dir: Path,
     job_name_prefix: str,
 ) -> list[str]:
     job_suffix = _sanitize_job_component(job_name_component)
     job_name = f"{job_name_prefix}_{job_suffix}"
-    return [
+    command = [
         "sbatch",
         f"--partition={partition}",
         f"--cpus-per-task={cpus_per_task}",
         f"--mem={mem_gb}G",
         f"--time={time_limit}",
+    ]
+    if excluded_nodes:
+        command.append(f"--exclude={','.join(excluded_nodes)}")
+    command.extend([
         f"--job-name={job_name}",
         f"--output={log_dir / (job_name + '_%j.out')}",
         f"--error={log_dir / (job_name + '_%j.err')}",
@@ -68,7 +87,8 @@ def _build_sbatch_command(
         str(job_index),
         conda_env,
         python_executable,
-    ]
+    ])
+    return command
 
 
 project_dir = require_dir(Path.cwd(), "Project directory")
@@ -92,6 +112,7 @@ partition = cluster_cfg["partition"]
 cpus_per_task = int(cluster_cfg["cpus_per_task"])
 mem_gb = int(cluster_cfg["mem_gb"])
 time_limit = cluster_cfg["time"]
+excluded_nodes = _normalize_excluded_nodes(cluster_cfg.get("exclude_nodes"))
 conda_env = cluster_cfg["conda_env"]
 python_executable = cluster_cfg.get("python_executable", "python")
 
@@ -144,6 +165,7 @@ for job_spec in job_specs:
         cpus_per_task=cpus_per_task,
         mem_gb=mem_gb,
         time_limit=time_limit,
+        excluded_nodes=excluded_nodes,
         log_dir=log_dir,
         job_name_prefix=job_name_prefix,
     )

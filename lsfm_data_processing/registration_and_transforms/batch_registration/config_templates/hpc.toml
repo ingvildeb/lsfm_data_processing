@@ -5,6 +5,8 @@ mem_gb = 128
 time = "24:00:00"
 conda_env = "lsfm_data_processing"
 python_executable = "python"
+# Optional Slurm node names to exclude from every submitted job.
+exclude_nodes = []
 
 [workflow]
 # Launch from the project root. This path is interpreted relative to that root
