@@ -2,16 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import sys
-
-
-GITHUB_ROOT = Path(__file__).resolve().parents[3]
-ATLASSPACE_SRC = GITHUB_ROOT / "atlasspace" / "src"
-if ATLASSPACE_SRC.exists() and str(ATLASSPACE_SRC) not in sys.path:
-    sys.path.insert(0, str(ATLASSPACE_SRC))
 
 from atlasspace import registration
 
+from lsfm_data_processing.registration_and_transforms.runtime_contract import (
+    write_registration_runtime_provenance,
+)
 from lsfm_data_processing.utils.io_helpers import (
     CanonicalConfigTemplate,
     load_toml_config,
@@ -225,6 +221,7 @@ def _run_batch_job_impl(
     print(f"Running batch registration for {job_spec.label} ...")
 
     try:
+        write_registration_runtime_provenance(job_spec.output_dir)
         result = registration.run_antspy_registration(job)
 
         if not result.success:

@@ -7,6 +7,10 @@ from lsfm_data_processing.registration_and_transforms._batch_register_core impor
     load_batch_register_settings_from_path,
     run_batch_registration_for_job,
 )
+from lsfm_data_processing.registration_and_transforms.runtime_contract import (
+    format_registration_runtime,
+    validate_registration_runtime,
+)
 
 
 parser = argparse.ArgumentParser(
@@ -26,6 +30,11 @@ parser.add_argument(
 args = parser.parse_args()
 
 registration_config = Path(args.registration_config).resolve()
+registration_runtime = validate_registration_runtime(
+    require_installed_packages=True,
+)
+print("Registration runtime preflight:")
+print(format_registration_runtime(registration_runtime))
 
 settings = load_batch_register_settings_from_path(registration_config)
 job_spec = get_batch_job_spec(settings, args.job_index)

@@ -1,19 +1,26 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "lsfm-data-processing"
-version = "0.1.0"
+version = "0.2.0"
 description = "Reusable utilities and scripts for LSFM data processing workflows"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 dependencies = [
   "numpy",
   "opencv-python",
   "tifffile",
   "pillow",
   "nibabel"
+]
+
+[project.optional-dependencies]
+registration = [
+  "atlasspace @ git+https://github.com/ingvildeb/atlasspace.git@v0.2.0"
 ]
 
 [tool.setuptools.packages.find]

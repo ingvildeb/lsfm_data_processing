@@ -5,21 +5,18 @@ system. The paths below are examples. Replace `/path/to/...` with the paths used
 
 For the batch and sweep registration TOML fields themselves, see `docs/registration_config_setup.md`.
 
-## Shared Folder Layout
+## Shared Data Layout
 
-If your group maintains a shared checkout of the registration code and templates, a useful layout is:
+Shared storage should contain project data, templates, and configs, but not the
+Python source used at runtime. For example:
 
 ```text
 /path/to/shared_registration/
-  code/
-    atlasspace/
-    lsfm_data_processing/
   templates/
-    ...
+  projects/
 ```
 
-The `code/` folder contains source checkouts. The `templates/` folder contains shared template images, label volumes,
-and masks.
+Each user's tagged package installation is the sole runtime code source.
 
 ## Create A Conda Environment
 
@@ -32,23 +29,23 @@ conda activate lsfm_data_processing
 
 ## Install The Packages
 
-If your HPC has shared source checkouts, install from those folders:
+Install the tagged registration stack directly from GitHub:
 
 ```bash
-pip install /path/to/shared_registration/code/atlasspace
-pip install /path/to/shared_registration/code/lsfm_data_processing
+python -m pip install --upgrade pip
+python -m pip install \
+  "lsfm-data-processing[registration] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.2.0"
 ```
 
-This is a non-editable local install:
-
-- the package is installed from a local folder, not from PyPI
-- later edits to the source checkout do not affect your environment until you reinstall
-
-Verify imports with:
+Verify versions, module locations, and the registration-result contract with:
 
 ```bash
-python -c "import atlasspace; import lsfm_data_processing; print('Imports OK')"
+python -m lsfm_data_processing.registration_and_transforms.runtime_contract
 ```
+
+The check must report `atlasspace 0.2.0`, `lsfm_data_processing 0.2.0`,
+`registration_result.json` schema `1`, and package paths under the active
+environment's `site-packages` directory.
 
 ## Create A Registration Project
 
@@ -85,21 +82,13 @@ my_registration_project/
 For batch registration:
 
 ```bash
-cp /path/to/shared_registration/code/atlasspace/src/atlasspace/config_templates/registration_batch_template.toml \
-  /path/to/my_registration_project/configs/batch_register.toml
-
-cp /path/to/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/config_templates/hpc.toml \
-  /path/to/my_registration_project/configs/hpc.toml
+python -c "from importlib.resources import files; from shutil import copyfile; copyfile(files('atlasspace.config_templates').joinpath('registration_batch_template.toml'), '/path/to/my_registration_project/configs/batch_register.toml'); copyfile(files('lsfm_data_processing.registration_and_transforms.batch_registration.config_templates').joinpath('hpc.toml'), '/path/to/my_registration_project/configs/hpc.toml')"
 ```
 
 For sweep registration:
 
 ```bash
-cp /path/to/shared_registration/code/atlasspace/src/atlasspace/config_templates/registration_sweep_template.toml \
-  /path/to/my_registration_project/configs/sweep_register.toml
-
-cp /path/to/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/config_templates/hpc.toml \
-  /path/to/my_registration_project/configs/hpc.toml
+python -c "from importlib.resources import files; from shutil import copyfile; copyfile(files('atlasspace.config_templates').joinpath('registration_sweep_template.toml'), '/path/to/my_registration_project/configs/sweep_register.toml'); copyfile(files('lsfm_data_processing.registration_and_transforms.sweep_registration.config_templates').joinpath('hpc.toml'), '/path/to/my_registration_project/configs/hpc.toml')"
 ```
 
 ## Edit `hpc.toml`
@@ -159,10 +148,10 @@ Activate your environment:
 conda activate lsfm_data_processing
 ```
 
-Run the batch submit script:
+Run the installed batch submitter:
 
 ```bash
-bash /path/to/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/batch_registration/hpc/submit_batch_register.sh
+python -m lsfm_data_processing.registration_and_transforms.batch_registration.hpc.submit_batch_register
 ```
 
 The script reads `configs/hpc.toml`, reads the registration config listed in `[workflow].registration_config`, expands
@@ -182,10 +171,10 @@ Activate your environment:
 conda activate lsfm_data_processing
 ```
 
-Run the sweep submit script:
+Run the installed sweep submitter:
 
 ```bash
-bash /path/to/shared_registration/code/lsfm_data_processing/lsfm_data_processing/registration_and_transforms/sweep_registration/hpc/submit_sweep_register.sh
+python -m lsfm_data_processing.registration_and_transforms.sweep_registration.hpc.submit_sweep_register
 ```
 
 The script reads `configs/hpc.toml`, reads the registration config listed in `[workflow].registration_config`, expands
@@ -207,6 +196,7 @@ Each job writes `.out` and `.err` files there.
 Before launching real jobs, make sure:
 
 - your conda environment is activated
+- the registration runtime preflight passes
 - you are standing in the project root
 - `configs/hpc.toml` points to the intended registration config
 - `dry_run = true` has been tested at least once

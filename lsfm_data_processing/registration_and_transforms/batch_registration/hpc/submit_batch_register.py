@@ -8,6 +8,10 @@ from lsfm_data_processing.registration_and_transforms._batch_register_core impor
     get_batch_job_specs,
     load_batch_register_settings_from_path,
 )
+from lsfm_data_processing.registration_and_transforms.runtime_contract import (
+    format_registration_runtime,
+    validate_registration_runtime,
+)
 from lsfm_data_processing.utils.io_helpers import (
     load_toml_config,
     normalize_user_path,
@@ -104,6 +108,9 @@ registration_config = _resolve_project_path(
 )
 registration_config = require_file(registration_config, "Registration config")
 registration_settings = load_batch_register_settings_from_path(registration_config)
+registration_runtime = validate_registration_runtime(
+    require_installed_packages=True,
+)
 
 log_dir = _resolve_project_path(project_dir, logging_cfg["log_dir"])
 log_dir.mkdir(parents=True, exist_ok=True)
@@ -133,6 +140,8 @@ submitted_jobs: list[str] = []
 skipped_jobs: list[str] = []
 
 print(f"Using HPC config: {hpc_config}")
+print("Registration runtime preflight:")
+print(format_registration_runtime(registration_runtime))
 print(f"Using registration config: {registration_config}")
 print(
     "Using registration presets: "

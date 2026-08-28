@@ -13,7 +13,7 @@ exclude_nodes = []
 # unless you provide an absolute path.
 registration_config = "configs/batch_register.toml"
 skip_if_output_exists = true
-dry_run = false
+dry_run = true
 job_name_prefix = "reg"
 
 [logging]

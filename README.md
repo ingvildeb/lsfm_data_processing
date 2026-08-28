@@ -2,40 +2,35 @@
 
 Utilities and pipelines for LSFM preprocessing, chunk generation, atlas alignment support, and dataset management.
 
-## Registration branch setup
+## Registration setup
 
-The `registration-beta` branch contains the current registration and transform workflows built on
-[`atlasspace`](https://github.com/ingvildeb/atlasspace). Use a dedicated environment for this branch:
+Registration and transform workflows are built on
+[`atlasspace`](https://github.com/ingvildeb/atlasspace). Use a dedicated environment:
 
 ```powershell
 conda create --name lsfm_registration python=3.11
 conda activate lsfm_registration
 ```
 
-Navigate to the folder where you keep GitHub checkouts, then clone and install this branch:
+For reproducible registration use, install the tagged package with its registration extra:
 
 ```powershell
-cd C:\Users\YourName\Documents\GitHub
+python -m pip install --upgrade pip
+python -m pip install "lsfm-data-processing[registration] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.2.0"
+```
+
+For development from a local checkout, use an editable install instead:
+
+```powershell
 git clone https://github.com/ingvildeb/lsfm_data_processing.git
 cd lsfm_data_processing
-git switch registration-beta
-python -m pip install --upgrade pip
+python -m pip install -e ".[registration]"
 ```
 
-Install `atlasspace` from GitHub, then install this repo and its requirements.
-The `requirements.txt` file includes `-e .`, so this installs `lsfm_data_processing`
-from the checked-out `registration-beta` branch as an editable package:
+Verify the exact installed registration runtime:
 
 ```powershell
-python -m pip install "atlasspace @ git+https://github.com/ingvildeb/atlasspace.git"
-python -m pip install -r requirements.txt
-```
-
-Test the registration imports:
-
-```powershell
-python -c "import atlasspace, lsfm_data_processing; print('imports ok')"
-python -c "from lsfm_data_processing.registration_and_transforms._batch_register_core import load_batch_register_settings_from_path; print('registration imports ok')"
+python -m lsfm_data_processing.registration_and_transforms.runtime_contract
 ```
 
 For registration config setup, see `docs/registration_config_setup.md`. For HPC launch instructions, see

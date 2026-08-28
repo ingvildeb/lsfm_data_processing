@@ -11,8 +11,7 @@ For a project-specific preset, start by copying a built-in preset into your proj
 ```bash
 mkdir -p /path/to/your_registration_project/configs/registration_presets
 
-cp /path/to/atlasspace/src/atlasspace/presets/registration/tuned_syn_cc.yaml \
-  /path/to/your_registration_project/configs/registration_presets/my_tuned_syn.yaml
+python -c "from importlib.resources import files; from shutil import copyfile; copyfile(files('atlasspace.presets.registration').joinpath('tuned_syn_cc.yaml'), '/path/to/your_registration_project/configs/registration_presets/my_tuned_syn.yaml')"
 ```
 
 Replace the project path with your own registration project directory. Then reference the custom YAML path in
