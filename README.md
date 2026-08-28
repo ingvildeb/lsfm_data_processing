@@ -38,6 +38,9 @@ python -c "import atlasspace, lsfm_data_processing; print('imports ok')"
 python -c "from lsfm_data_processing.registration_and_transforms._batch_register_core import load_batch_register_settings_from_path; print('registration imports ok')"
 ```
 
+For registration config setup, see `docs/registration_config_setup.md`. For HPC launch instructions, see
+`docs/registration_hpc_setup.md`. For custom ANTs/ANTsPy parameter presets, see `docs/registration_presets.md`.
+
 ## Repository layout
 
 - `preprocess_for_cellpose/`: pre-process data for segmentation and build Cellpose training datasets from stitched TIFF images
