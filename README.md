@@ -35,6 +35,8 @@ python -m lsfm_data_processing.registration_and_transforms.runtime_contract
 
 For registration config setup, see `docs/registration_config_setup.md`. For HPC launch instructions, see
 `docs/registration_hpc_setup.md`. For custom ANTs/ANTsPy parameter presets, see `docs/registration_presets.md`.
+The shared project-workflow behavior and its acceptance-test matrix are defined in
+`docs/registration_workflow_contract.md`.
 
 ## Repository layout
 
