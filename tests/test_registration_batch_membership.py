@@ -110,6 +110,23 @@ def test_legacy_pair_migrates_then_retires_only_after_verification(
     assert not legacy_record.exists()
 
 
+def test_legacy_record_alone_is_planned_for_canonical_conversion(
+    tmp_path: Path,
+) -> None:
+    batch = tmp_path / "batch001"
+    legacy_record = batch / "batch001_subjects.xlsx"
+    _write_legacy_record(
+        legacy_record,
+        [("A001", "P7", "P8", str(tmp_path / "session_A001"))],
+    )
+
+    plan = _plan(batch)
+
+    assert plan.canonical_state == "convert_legacy_record"
+    assert plan.canonical_source == legacy_record
+    assert plan.canonical_content
+
+
 def test_disagreeing_legacy_files_stop_migration(tmp_path: Path) -> None:
     batch = tmp_path / "batch001"
     _write_input(

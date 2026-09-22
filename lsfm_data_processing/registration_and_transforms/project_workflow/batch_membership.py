@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from hashlib import sha256
 import json
 from pathlib import Path, PureWindowsPath
 import re
 import shutil
 from typing import Mapping
+from io import BytesIO
 
 from openpyxl import load_workbook
 
@@ -35,8 +37,10 @@ class BatchMembershipPlan:
     manifest_content: bytes
     manifest_state: str
     observed_workbook_sha256: str
+    source_workbook_sha256: str | None
     observed_manifest_sha256: str | None
     legacy_files_to_retire: tuple[Path, ...]
+    canonical_content: bytes
 
     @property
     def required_confirmation(self) -> str:
@@ -253,16 +257,44 @@ def read_batch_manifest_members(
 
 
 def _manifest_content(
-    *, batch_id: str, members: tuple[BatchMember, ...], workbook_sha256: str
+    *,
+    batch_id: str,
+    members: tuple[BatchMember, ...],
+    workbook_sha256: str,
+    source_workbook: Path,
+    migration_mode: str,
 ) -> bytes:
+    template_counts: dict[str, int] = {}
+    for member in members:
+        template_counts[member.template_age] = template_counts.get(member.template_age, 0) + 1
     payload = {
         "schema_version": BATCH_MANIFEST_SCHEMA_VERSION,
         "batch_id": batch_id,
         "normalized_membership_sha256": _membership_hash(members),
         "workbook_sha256_at_definition": workbook_sha256,
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "source_workbook": str(source_workbook),
+        "migration_mode": migration_mode,
+        "subject_count": len(members),
+        "template_counts": dict(sorted(template_counts.items())),
         "subjects": _normalized_members(members),
     }
     return (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+
+def _canonical_workbook_content(members: tuple[BatchMember, ...]) -> bytes:
+    """Render the minimal canonical membership workbook for legacy migration."""
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Batch subjects"
+    sheet.append(["ID", "age", "path"])
+    for member in members:
+        sheet.append([member.subject_id, member.recorded_age, member.session_path])
+    output = BytesIO()
+    workbook.save(output)
+    return output.getvalue()
 
 
 def plan_batch_membership(
@@ -285,6 +317,8 @@ def plan_batch_membership(
 
     canonical_source: Path | None = None
     canonical_state = "already_present"
+    canonical_content: bytes
+    source_workbook_sha256: str | None = None
     if canonical.is_file():
         members = _read_members(
             canonical,
@@ -293,6 +327,8 @@ def plan_batch_membership(
             legacy_record=False,
         )
         workbook_sha = _file_sha256(canonical)
+        canonical_content = canonical.read_bytes()
+        source_workbook_sha256 = workbook_sha
     elif legacy_input.is_file() and legacy_record.is_file():
         members = _read_members(
             legacy_input,
@@ -314,6 +350,20 @@ def plan_batch_membership(
         canonical_source = legacy_input
         canonical_state = "copy_legacy_input"
         workbook_sha = _file_sha256(legacy_input)
+        canonical_content = legacy_input.read_bytes()
+        source_workbook_sha256 = workbook_sha
+    elif legacy_record.is_file():
+        members = _read_members(
+            legacy_record,
+            age_to_template=age_to_template,
+            available_templates=available_templates,
+            legacy_record=True,
+        )
+        canonical_source = legacy_record
+        canonical_state = "convert_legacy_record"
+        canonical_content = _canonical_workbook_content(members)
+        workbook_sha = sha256(canonical_content).hexdigest()
+        source_workbook_sha256 = _file_sha256(legacy_record)
     elif legacy_existing:
         raise ValueError(
             "Incomplete legacy batch definition; expected both "
@@ -342,6 +392,8 @@ def plan_batch_membership(
         batch_id=batch_id,
         members=members,
         workbook_sha256=workbook_sha,
+        source_workbook=canonical_source or canonical,
+        migration_mode=canonical_state,
     )
     observed_manifest_sha: str | None = None
     if manifest.exists():
@@ -382,8 +434,10 @@ def plan_batch_membership(
         manifest_content=manifest_content,
         manifest_state=manifest_state,
         observed_workbook_sha256=workbook_sha,
+        source_workbook_sha256=source_workbook_sha256,
         observed_manifest_sha256=observed_manifest_sha,
         legacy_files_to_retire=legacy_existing,
+        canonical_content=canonical_content,
     )
 
 
@@ -407,17 +461,22 @@ def apply_batch_membership_plan(
 
     if confirmation != plan.required_confirmation:
         raise ValueError(f"Required confirmation: {plan.required_confirmation!r}")
-    if plan.canonical_state == "copy_legacy_input":
+    if plan.canonical_state in {"copy_legacy_input", "convert_legacy_record"}:
         if plan.canonical_source is None:
             raise ValueError("Legacy migration has no canonical source workbook.")
-        if _file_sha256(plan.canonical_source) != plan.observed_workbook_sha256:
+        if plan.source_workbook_sha256 is None or (
+            _file_sha256(plan.canonical_source) != plan.source_workbook_sha256
+        ):
             raise RuntimeError("Legacy input workbook changed after preflight.")
         plan.canonical_workbook.parent.mkdir(parents=True, exist_ok=True)
         temporary = plan.canonical_workbook.with_name(
             f".{plan.canonical_workbook.name}.tmp"
         )
         try:
-            shutil.copy2(plan.canonical_source, temporary)
+            if plan.canonical_state == "copy_legacy_input":
+                shutil.copy2(plan.canonical_source, temporary)
+            else:
+                temporary.write_bytes(plan.canonical_content)
             if _file_sha256(temporary) != plan.observed_workbook_sha256:
                 raise IOError("Canonical workbook copy failed verification.")
             temporary.replace(plan.canonical_workbook)
