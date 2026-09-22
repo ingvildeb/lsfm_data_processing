@@ -20,7 +20,9 @@ dependencies = [
 
 [project.optional-dependencies]
 registration = [
-  "atlasspace @ git+https://github.com/ingvildeb/atlasspace.git@v0.2.0"
+  "atlasspace @ git+https://github.com/ingvildeb/atlasspace.git@v0.2.0",
+  "openpyxl>=3.1",
+  "pyyaml>=6"
 ]
 
 [tool.setuptools.packages.find]

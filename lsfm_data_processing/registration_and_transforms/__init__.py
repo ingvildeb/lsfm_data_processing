@@ -5,6 +5,7 @@ from types import ModuleType
 
 __all__ = [
     "batch_registration",
+    "project_workflow",
     "sweep_registration",
 ]
 

@@ -38,6 +38,17 @@ For registration config setup, see `docs/registration_config_setup.md`. For HPC 
 The shared project-workflow behavior and its acceptance-test matrix are defined in
 `docs/registration_workflow_contract.md`.
 
+Reusable project orchestration models, evaluation-workbook adapters,
+mask-assisted rescue handling, and resumable registration distribution live in
+`lsfm_data_processing.registration_and_transforms.project_workflow`. The canonical
+workbook keeps run-level decisions in `Run evaluations` and supports multiple,
+independently synchronized requests per subject in `Rescue requests`. Existing
+workbooks with a run-level `Proposed rescue` column are migrated during the first
+plan/apply synchronization while unrelated workbook sheets are preserved.
+Distribution installs the selected run canonically, archives all alternatives,
+strictly validates existing files, and marks a batch subject `_transferred` only
+after copies and project-specific finalization have completed.
+
 ## Repository layout
 
 - `preprocess_for_cellpose/`: pre-process data for segmentation and build Cellpose training datasets from stitched TIFF images

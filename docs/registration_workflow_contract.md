@@ -19,8 +19,8 @@ or replacing transformed segmentations after registration.
   workbooks, rescue planning, mask-assisted rescue preparation, HPC submission,
   distribution, and batch-level orchestration.
 - Project repositories own tracker selection, project paths, templates,
-  age/template assignments, configured rescue options, and decisions about
-  when shared operations run.
+  age/template assignments, and decisions about when shared operations run.
+  `lsfm_data_processing` owns the canonical rescue menu and parameter values.
 
 ## Common Terms
 
@@ -49,7 +49,39 @@ or replacing transformed segmentations after registration.
 6. Preflight must prominently summarize selected runs, exclusions, and
    unresolved subjects before changes are applied.
 
+### Registration Run Inventory
+
+Evaluation refresh discovers runs from generated registration TOMLs and
+`registration_result.json` manifests before synchronizing the workbook.
+
+1. Generated TOMLs define planned subject/run identities.
+2. A valid manifest defines an executed run and is authoritative for its
+   preset name and `success` or `failed` status.
+3. A planned run with an existing output directory but no manifest is
+   `missing_manifest`; one without an output directory is `planned`.
+4. Invalid JSON, an unsupported manifest schema, or a manifest that fails the
+   AtlasSpace result model stops the complete workbook refresh.
+5. Runs remain discoverable from either `<subject>` or
+   `<subject>_transferred`.
+6. The simultaneous presence of both directory forms is a conflicting state
+   and stops refresh. Reopening transferred subjects is not currently
+   supported.
+7. Workbook synchronization preserves human-entered evaluations and rescue
+   requests while updating discovered run metadata.
+
 ## 2. Rescue Requests
+
+The standard rescue menu is identical for every project workflow and is not
+filtered or overridden by project configuration. It contains padding, lower
+gradient step, padding plus lower gradient step, higher gradient step, higher
+gradient step plus padding, bidirectional gradient step, resolution sweep,
+padding plus resolution sweep, high-memory retry, masking, and custom.
+Unusual parameter combinations use `custom` rather than adding a
+project-specific predefined strategy.
+
+Scientific parameter changes and HPC resources are represented separately.
+High-memory retry therefore reproduces its required source run unchanged while
+requesting 256 GB for the submitted job.
 
 ### Workbook Structure
 
@@ -147,6 +179,15 @@ Generated files are divided into three categories.
 A preset filename identifies one parameter combination. An identical existing
 preset is reused. Different content at the same semantic preset name is a
 conflict.
+
+Standard rescue presets use readable names derived from the baseline preset
+and scientific overrides. Source-derived presets used by masking and exact
+retries are named by scientific-content hash. They are never named for a
+subject, and equivalent source parameter snapshots reuse the same preset.
+
+Preset provenance records only scientific origin and overrides. Subject,
+request, source-run, input-image, output, config hash, and HPC-resource
+provenance are stored beside each subject-specific registration TOML.
 
 ### Registration Configurations
 
@@ -309,6 +350,17 @@ tests as the shared implementation is extracted.
 | Failed request remains in workbook | It remains failed and is not automatically retried. |
 | New request is added in a later round | Only the new request artifacts are generated. |
 
+### Run Inventory
+
+| Scenario | Expected behavior |
+| --- | --- |
+| Config exists but no output directory exists | Record the run as `planned`. |
+| Output directory exists without a manifest | Record the run as `missing_manifest`. |
+| Valid success or failure manifest exists | Manifest status and preset are authoritative. |
+| Manifest is invalid or uses an unsupported schema | Stop the complete workbook refresh. |
+| Only `_transferred` subject directory exists | Continue discovering its historical runs. |
+| Active and `_transferred` directories both exist | Stop and require explicit state resolution. |
+
 ### Mask-Assisted Rescue
 
 | Scenario | Expected behavior |
@@ -337,6 +389,48 @@ tests as the shared implementation is extracted.
 | Successful matching output manifest exists | Mark the registration complete. |
 | Failed output manifest exists | Mark it failed and require an explicit retry. |
 | Output directory lacks a valid manifest | Mark it incomplete; do not treat it as success. |
+
+### Baseline Artifact Generation
+
+Projects provide a typed registration batch specification and their operational
+HPC defaults. The shared workflow generates four canonical artifacts:
+
+- `configs/baseline.toml` is an immutable scientific/job definition.
+- `configs/baseline.provenance.json` is immutable and records the typed inputs
+  plus the baseline TOML SHA-256 hash.
+- `configs/hpc.toml` is operational state and may be atomically refreshed.
+- `submit_baseline_hpc.sh` is a derived operational helper and may be atomically
+  refreshed.
+
+Planning preflights the complete bundle before any write. Identical files are
+resumed, differing immutable files stop the operation, and only the two
+explicitly operational files can be replaced.
+
+### Native Image Preparation
+
+Projects define required channels, source and canonical filenames, the declared
+subject space, and which single channel is staged for registration. The shared
+workflow validates every required source before applying changes, rewrites only
+NIfTI spatial metadata, validates the prepared header, and stages the selected
+registration channel through a verified atomic copy.
+
+Canonical schema-2 provenance records the source path/size/modification time,
+the prepared-image SHA-256 hash, declared orientation and resolution, operation,
+and project metadata. Matching outputs are resumed; source, output, or space
+disagreement is a hard conflict. Temporary handling of older provenance is
+tracked in `registration_workflow_migration.md`.
+
+### Batch Membership
+
+Every batch has exactly one canonical specification workbook named
+`batchXXX.xlsx` and one package-managed `batch_manifest.json`. The workbook
+contains `ID`, `age`, and `path`; its location is derived from the batch ID and
+is not separately configured.
+
+The first applied preparation freezes normalized subject IDs, recorded ages,
+template assignments, and session paths in the manifest. Later formatting or
+row-order edits are accepted, but adding, removing, or changing a subject stops
+preflight with a difference report. Additional subjects require a new batch.
 
 ### Resumability And Distribution
 
@@ -376,6 +470,7 @@ tests as the shared implementation is extracted.
 3. Extract shared evaluation, rescue-request, and artifact identity models into
    `lsfm_data_processing`.
 4. Implement subject-specific rescue configs and shared masking state handling.
-5. Implement common resumability and distribution primitives.
+5. Implement common resumability and distribution primitives. *(Implemented.)*
 6. Pilot in Chandelier Cell, then Triple Transgenic, Glia Mapping, and SING.
+   *(Chandelier Cell pilot implemented; remaining migrations pending.)*
 7. Remove project copies only after parity tests pass.
