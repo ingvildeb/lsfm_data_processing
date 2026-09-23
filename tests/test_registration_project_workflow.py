@@ -229,6 +229,18 @@ def test_custom_rows_support_multiple_variants_and_generated_names() -> None:
     assert [item.key.variant_name for item in plan.active] == ["gs0p08", "coarse"]
 
 
+def test_custom_rescue_does_not_require_notes() -> None:
+    decisions = resolve_final_decisions((), subject_ids=("A",))
+    plan = resolve_rescue_requests(
+        (RescueRequest("A", "custom", gradient_step=0.08),),
+        strategies=_strategies(),
+        decisions=decisions,
+    )
+
+    assert len(plan.active) == 1
+    assert not plan.active[0].request.notes
+
+
 def test_predefined_rescue_parameter_values_are_ignored_with_warning() -> None:
     decisions = resolve_final_decisions((), subject_ids=("A",))
     plan = resolve_rescue_requests(

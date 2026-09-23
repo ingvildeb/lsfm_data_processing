@@ -190,11 +190,6 @@ def resolve_rescue_requests(
                     f"{request.subject_id}: custom rescue requires at least one parameter override"
                 )
                 continue
-            if not request.notes:
-                errors.append(
-                    f"{request.subject_id}: custom rescue requires a rationale in Notes"
-                )
-                continue
             fingerprint = (request.subject_id, request.custom_parameters)
             previous = custom_parameter_sets.get(fingerprint)
             if previous is not None:
