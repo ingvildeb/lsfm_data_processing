@@ -14,6 +14,7 @@ from lsfm_data_processing.registration_and_transforms.project_workflow.models im
 )
 from lsfm_data_processing.registration_and_transforms.project_workflow.schema import (
     RESCUE_REQUESTS_SHEET,
+    RESCUE_REQUEST_COLUMNS,
     RUN_EVALUATION_COLUMNS,
     RUN_EVALUATIONS_SHEET,
     WORKFLOW_LISTS_SHEET,
@@ -141,6 +142,49 @@ def test_plan_apply_preserves_human_fields_and_auxiliary_sheets(
     )
     assert second_plan.migrated_rescue_count == 0
     assert len(second_plan.data.rescue_requests) == 1
+
+
+@pytest.mark.parametrize(
+    ("statuses", "results", "expected"),
+    (
+        (("success",) * 3, ("overwarping",) * 3, "completed"),
+        (("success",) * 3, ("overwarping", "", "overwarping"), "generated"),
+        (("failed",) * 3, ("",) * 3, "failed"),
+        (("success", "failed", "planned"), ("overwarping", "", ""), "generated"),
+    ),
+)
+def test_refresh_closes_only_finished_rescue_sweeps(
+    tmp_path: Path, statuses, results, expected: str
+) -> None:
+    path = tmp_path / "registration_evaluation.xlsx"
+    workbook = Workbook()
+    run_sheet = workbook.active
+    run_sheet.title = RUN_EVALUATIONS_SHEET
+    run_sheet.append(RUN_EVALUATION_COLUMNS)
+    variants = ("gs0p01", "gs0p02", "gs0p025")
+    runs = tuple(
+        RunEvaluation(
+            "A", f"registration_runs/lower_gradient_step_rescue/{variant}",
+            manifest_status=status, result=result,
+        )
+        for variant, status, result in zip(variants, statuses, results)
+    )
+    for run in runs:
+        run_sheet.append((run.subject_id, run.run_path, "", run.manifest_status,
+                          run.result, "", "", "", None))
+    rescue_sheet = workbook.create_sheet(RESCUE_REQUESTS_SHEET)
+    rescue_sheet.append(RESCUE_REQUEST_COLUMNS)
+    rescue_sheet.append(("A", "lower gradient step", "", "", None, None, None,
+                         "", "generated"))
+    workbook.save(path)
+
+    plan = build_evaluation_workbook_plan(
+        path=path,
+        discovered_runs=runs,
+        strategies=(RescueStrategy("lower_gradient_step", "lower gradient step"),),
+    )
+
+    assert plan.data.rescue_requests[0].status == expected
 
 
 def test_apply_rejects_workbook_changed_after_planning(tmp_path: Path) -> None:

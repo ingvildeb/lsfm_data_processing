@@ -78,6 +78,11 @@ def _write_registration_inputs(subject_dir: Path) -> Path:
         np.arange(np.prod(effective_shape), dtype=np.float32).reshape(effective_shape),
         affine=lsp_affine,
     )
+    _write_nifti(
+        run_dir / "ANTsPy_Warped.nii.gz",
+        np.ones(effective_shape, dtype=np.float32),
+        affine=lsp_affine,
+    )
     original = np.arange(np.prod(original_shape), dtype=np.uint16).reshape(original_shape)
     _write_nifti(subject_dir / "ch1_native_20um.nii.gz", original)
     (run_dir / "registration_parameters.yaml").write_text(
@@ -179,6 +184,16 @@ def test_completed_mask_creates_separate_native_input_and_preserves_original(
         settings=settings,
     )
     assert awaiting[0].action == "await"
+    assert awaiting[0].review_warped_image.is_file()
+    for review_path in (
+        awaiting[0].draft_mask,
+        awaiting[0].review_fixed_image,
+        awaiting[0].review_warped_image,
+    ):
+        image = nib.load(review_path)
+        reference = nib.load(awaiting[0].review_fixed_image)
+        assert image.shape == reference.shape
+        np.testing.assert_allclose(image.affine, reference.affine)
     shutil.copyfile(awaiting[0].draft_mask, awaiting[0].completed_mask)
 
     completed = build_masking_plans(
@@ -202,3 +217,52 @@ def test_completed_mask_creates_separate_native_input_and_preserves_original(
     assert ready[0].masked_fixed_image.is_file()
     assert nib.load(ready[0].masked_fixed_image).shape == nib.load(original_path).shape
     assert original_path.read_bytes() == original_bytes
+
+
+def test_existing_review_folder_does_not_require_new_warped_reference(
+    tmp_path: Path,
+) -> None:
+    subject_dir = tmp_path / "A"
+    run_dir = _write_registration_inputs(subject_dir)
+    plan = _request_plan(
+        RescueRequest("A", "Masking", source_run="registration_runs/baseline")
+    )
+    first = build_masking_plans(
+        plan, subjects_root=tmp_path, original_fixed_filename="ch1_native_20um.nii.gz"
+    )
+    apply_masking_plans(first)
+    first[0].review_warped_image.unlink()
+    (run_dir / "ANTsPy_Warped.nii.gz").unlink()
+
+    existing = build_masking_plans(
+        plan, subjects_root=tmp_path, original_fixed_filename="ch1_native_20um.nii.gz"
+    )
+    assert existing[0].action == "await"
+    apply_masking_plans(existing)
+    assert not existing[0].review_warped_image.exists()
+    shutil.copyfile(existing[0].draft_mask, existing[0].completed_mask)
+    completed = build_masking_plans(
+        plan, subjects_root=tmp_path, original_fixed_filename="ch1_native_20um.nii.gz"
+    )
+    assert completed[0].action == "apply_completed"
+    apply_masking_plans(completed)
+    assert completed[0].masked_fixed_image.is_file()
+
+
+def test_new_review_requires_warped_template_on_fixed_grid(tmp_path: Path) -> None:
+    subject_dir = tmp_path / "A"
+    run_dir = _write_registration_inputs(subject_dir)
+    _write_nifti(
+        run_dir / "ANTsPy_Warped.nii.gz",
+        np.ones((10, 10, 10), dtype=np.float32),
+    )
+    plan = _request_plan(
+        RescueRequest("A", "Masking", source_run="registration_runs/baseline")
+    )
+    with np.testing.assert_raises_regex(ValueError, "not on the same grid"):
+        build_masking_plans(
+            plan,
+            subjects_root=tmp_path,
+            original_fixed_filename="ch1_native_20um.nii.gz",
+        )
+    assert not (subject_dir / "registration_masks").exists()

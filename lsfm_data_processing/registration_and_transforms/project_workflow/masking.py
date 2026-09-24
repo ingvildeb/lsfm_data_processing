@@ -33,8 +33,10 @@ class MaskingSettings:
     review_resolution_um: float = 50.0
     source_segmentation_filename: str = "labels_WarpedSegmentation.nii.gz"
     source_fixed_filename: str = "fixed_normalized_for_registration.nii.gz"
+    source_warped_filename: str = "ANTsPy_Warped.nii.gz"
     draft_mask_filename: str = "brain_mask_50um_draft.nii.gz"
     review_fixed_filename: str = "fixed_image_50um_reference.nii.gz"
+    review_warped_filename: str = "warped_template_50um_reference.nii.gz"
     completed_mask_filename: str = "brain_mask_50um_complete.nii.gz"
     native_mask_filename: str = "brain_mask_native_applied.nii.gz"
     masked_fixed_filename: str = "fixed_image_native_masked.nii.gz"
@@ -52,10 +54,12 @@ class MaskingPlan:
     source_run_dir: Path
     source_segmentation: Path
     source_fixed_image: Path
+    source_warped_image: Path
     original_fixed_image: Path
     output_dir: Path
     draft_mask: Path
     review_fixed_image: Path
+    review_warped_image: Path
     completed_mask: Path
     native_mask: Path
     masked_fixed_image: Path
@@ -279,6 +283,7 @@ def _build_subject_masking_plan(
         return _replace_plan_state(
             plan, RescueRequestStatus.AWAITING_MANUAL_MASK, "await"
         )
+    _validate_warped_review_source(plan)
     return plan
 
 
@@ -298,10 +303,12 @@ def _plan_paths(
         source_run_dir=source_dir,
         source_segmentation=source_dir / settings.source_segmentation_filename,
         source_fixed_image=source_dir / settings.source_fixed_filename,
+        source_warped_image=source_dir / settings.source_warped_filename,
         original_fixed_image=original_fixed,
         output_dir=output,
         draft_mask=output / settings.draft_mask_filename,
         review_fixed_image=output / settings.review_fixed_filename,
+        review_warped_image=output / settings.review_warped_filename,
         completed_mask=output / settings.completed_mask_filename,
         native_mask=output / settings.native_mask_filename,
         masked_fixed_image=output / settings.masked_fixed_filename,
@@ -330,6 +337,7 @@ def _validate_source_grid(segmentation: Path, fixed: Path) -> None:
 
 
 def _create_review_artifacts(plan: MaskingPlan, *, settings: MaskingSettings) -> None:
+    _validate_warped_review_source(plan)
     plan.output_dir.mkdir(parents=True, exist_ok=True)
     manifest = load_registration_result_manifest(plan.source_run_dir)
     effective_space = manifest.effective_fixed_space
@@ -343,11 +351,17 @@ def _create_review_artifacts(plan: MaskingPlan, *, settings: MaskingSettings) ->
         image=plan.source_fixed_image,
         space=effective_space,
     )
+    warped = ImageConfig(
+        image_id=f"{plan.subject_id}_warped_template",
+        image=plan.source_warped_image,
+        space=effective_space,
+    )
     with tempfile.TemporaryDirectory(dir=plan.output_dir) as temporary_dir:
         temporary = Path(temporary_dir)
         native_mask = temporary / "brain_mask_native.nii.gz"
         draft = temporary / settings.draft_mask_filename
         reference = temporary / settings.review_fixed_filename
+        warped_reference = temporary / settings.review_warped_filename
         native_config = segmentation_to_binary_mask(segmentation, native_mask)
         target = (settings.review_resolution_um,) * 3
         resample_image_to_resolution(
@@ -362,11 +376,27 @@ def _create_review_artifacts(plan: MaskingPlan, *, settings: MaskingSettings) ->
             target_resolution_um=target,
             interpolation="linear",
         )
+        resample_image_to_resolution(
+            warped,
+            warped_reference,
+            target_resolution_um=target,
+            interpolation="linear",
+        )
         _validate_binary_nonempty(draft, "draft mask")
         _validate_same_grid(draft, reference, "draft mask", "review fixed image")
+        _validate_same_grid(
+            warped_reference, reference, "warped template", "review fixed image"
+        )
         _install_new_file(draft, plan.draft_mask)
         _install_new_file(reference, plan.review_fixed_image)
+        _install_new_file(warped_reference, plan.review_warped_image)
     _write_provenance(plan, settings=settings, stage="awaiting_manual_mask")
+
+
+def _validate_warped_review_source(plan: MaskingPlan) -> None:
+    if not plan.source_warped_image.is_file():
+        raise FileNotFoundError(f"warped template image is missing: {plan.source_warped_image}")
+    _validate_source_grid(plan.source_warped_image, plan.source_fixed_image)
 
 
 def _validate_review_pair(plan: MaskingPlan) -> None:

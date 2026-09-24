@@ -10,6 +10,7 @@ from typing import Iterable, Mapping
 from openpyxl import load_workbook
 
 from .decisions import WorkflowContractError, make_rescue_request_key, rescue_strategy_lookup
+from .rescue_catalog import expected_rescue_run_paths
 from .models import (
     EvaluationWorkbookData,
     RescueRequest,
@@ -188,6 +189,7 @@ def build_evaluation_workbook_plan(
         existing.rescue_requests,
         strategies=strategy_tuple,
         rescue_statuses=rescue_statuses or {},
+        run_evaluations=synchronized_runs,
     )
     existing_keys = set(existing_by_key)
     return EvaluationWorkbookPlan(
@@ -312,8 +314,12 @@ def _synchronize_rescue_statuses(
     *,
     strategies: tuple[RescueStrategy, ...],
     rescue_statuses: Mapping[RescueRequestKey, RescueRequestStatus | str],
+    run_evaluations: Iterable[RunEvaluation],
 ) -> list[RescueRequestRecord]:
     lookup = rescue_strategy_lookup(strategies)
+    runs_by_key = {
+        (row.subject_id, row.run_path): row for row in run_evaluations
+    }
     synchronized: list[RescueRequestRecord] = []
     for record in records:
         strategy = lookup.get(record.request.strategy.casefold())
@@ -322,6 +328,25 @@ def _synchronize_rescue_statuses(
             key = make_rescue_request_key(record.request, strategy)
             if key in rescue_statuses:
                 status = RescueRequestStatus(rescue_statuses[key]).value
+            elif status == RescueRequestStatus.GENERATED.value:
+                expected = expected_rescue_run_paths(record.request, strategy)
+                runs = [
+                    runs_by_key.get((record.request.subject_id, path))
+                    for path in expected
+                ]
+                if expected and all(
+                    run is not None
+                    and (
+                        run.manifest_status == "failed"
+                        or (run.manifest_status == "success" and run.result)
+                    )
+                    for run in runs
+                ):
+                    status = (
+                        RescueRequestStatus.COMPLETED.value
+                        if any(run.manifest_status == "success" for run in runs)
+                        else RescueRequestStatus.FAILED.value
+                    )
         synchronized.append(RescueRequestRecord(record.request, status))
     return synchronized
 
