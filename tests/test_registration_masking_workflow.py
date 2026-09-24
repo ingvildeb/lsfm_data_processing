@@ -214,6 +214,7 @@ def test_completed_mask_creates_separate_native_input_and_preserves_original(
     assert ready[0].state is RescueRequestStatus.MASK_READY
     assert ready[0].action == "ready"
     assert ready[0].native_mask.is_file()
+    assert ready[0].masked_fixed_image == subject_dir / "ch1_native_20um_masked.nii.gz"
     assert ready[0].masked_fixed_image.is_file()
     assert nib.load(ready[0].masked_fixed_image).shape == nib.load(original_path).shape
     assert original_path.read_bytes() == original_bytes
@@ -266,3 +267,25 @@ def test_new_review_requires_warped_template_on_fixed_grid(tmp_path: Path) -> No
             original_fixed_filename="ch1_native_20um.nii.gz",
         )
     assert not (subject_dir / "registration_masks").exists()
+
+
+def test_completed_mask_rejects_registration_grid_as_native_input(tmp_path: Path) -> None:
+    subject_dir = tmp_path / "A"
+    _write_registration_inputs(subject_dir)
+    plan = _request_plan(
+        RescueRequest("A", "Masking", source_run="registration_runs/baseline")
+    )
+    first = build_masking_plans(
+        plan, subjects_root=tmp_path, original_fixed_filename="ch1_native_20um.nii.gz"
+    )
+    apply_masking_plans(first)
+    shutil.copyfile(first[0].draft_mask, first[0].completed_mask)
+    wrong_grid = build_masking_plans(
+        plan,
+        subjects_root=tmp_path,
+        original_fixed_filename="registration_runs/baseline/fixed_normalized_for_registration.nii.gz",
+    )
+
+    with np.testing.assert_raises_regex(ValueError, "not on the declared native fixed-image grid"):
+        apply_masking_plans(wrong_grid)
+    assert not wrong_grid[0].native_mask.exists()

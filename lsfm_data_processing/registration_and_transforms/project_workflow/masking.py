@@ -39,7 +39,7 @@ class MaskingSettings:
     review_warped_filename: str = "warped_template_50um_reference.nii.gz"
     completed_mask_filename: str = "brain_mask_50um_complete.nii.gz"
     native_mask_filename: str = "brain_mask_native_applied.nii.gz"
-    masked_fixed_filename: str = "fixed_image_native_masked.nii.gz"
+    masked_fixed_suffix: str = "_masked"
     provenance_filename: str = "masking_provenance.json"
 
     def __post_init__(self) -> None:
@@ -200,6 +200,15 @@ def _output_dir(subject_dir: Path, source_run: str) -> Path:
     return subject_dir / "registration_masks" / relative
 
 
+def _masked_fixed_path(original_fixed: Path, settings: MaskingSettings) -> Path:
+    name = original_fixed.name
+    if not name.endswith(".nii.gz"):
+        raise ValueError(f"native fixed image must be a .nii.gz file: {original_fixed}")
+    return original_fixed.with_name(
+        f"{name[:-7]}{settings.masked_fixed_suffix}.nii.gz"
+    )
+
+
 def _placeholder_plan(
     item: ResolvedRescueRequest,
     *,
@@ -311,7 +320,7 @@ def _plan_paths(
         review_warped_image=output / settings.review_warped_filename,
         completed_mask=output / settings.completed_mask_filename,
         native_mask=output / settings.native_mask_filename,
-        masked_fixed_image=output / settings.masked_fixed_filename,
+        masked_fixed_image=_masked_fixed_path(original_fixed, settings),
         provenance_path=output / settings.provenance_filename,
         state=state,
         action=action,
@@ -438,6 +447,13 @@ def _apply_completed_mask(plan: MaskingPlan, *, settings: MaskingSettings) -> No
         update={"shape": tuple(int(value) for value in effective_mask.shape)}
     )
     original = nib.load(str(plan.original_fixed_image))
+    expected_shape = manifest.fixed_image.space.shape
+    if expected_shape is not None and tuple(original.shape) != tuple(expected_shape):
+        raise ValueError(
+            "masking input is not on the declared native fixed-image grid: "
+            f"{plan.original_fixed_image} has shape {original.shape}, "
+            f"expected {expected_shape}"
+        )
     declared_space = manifest.fixed_image.space.model_copy(
         update={"shape": tuple(int(value) for value in original.shape)}
     )
@@ -461,7 +477,7 @@ def _apply_completed_mask(plan: MaskingPlan, *, settings: MaskingSettings) -> No
     with tempfile.TemporaryDirectory(dir=plan.output_dir) as temporary_dir:
         temporary = Path(temporary_dir)
         native_path = temporary / settings.native_mask_filename
-        masked_path = temporary / settings.masked_fixed_filename
+        masked_path = temporary / plan.masked_fixed_image.name
         _save_like_original(native_mask, original, native_path, dtype=np.uint8)
         _save_like_original(masked, original, masked_path, dtype=original.get_data_dtype())
         _install_new_file(native_path, plan.native_mask)

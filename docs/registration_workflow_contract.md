@@ -146,17 +146,22 @@ for example under `registration_masks/<source-run>/`:
 ```text
 brain_mask_50um_draft.nii.gz
 fixed_image_50um_reference.nii.gz
+warped_template_50um_reference.nii.gz
 brain_mask_50um_complete.nii.gz
 brain_mask_native_applied.nii.gz
-fixed_image_native_masked.nii.gz
 masking_provenance.json
 ```
+
+The masked fixed image is written beside the original native fixed image as
+`<original-stem>_masked.nii.gz`, not inside `registration_masks/`.
 
 Behavior:
 
 1. The draft binary mask is generated from the source run's transformed atlas
    segmentation.
-2. The fixed reference and draft mask are written at 50 um for manual review.
+2. The fixed reference, warped template, and draft mask are written at 50 um
+   for manual review when a new draft is created. Existing review folders are
+   not backfilled with the warped template.
 3. Generated drafts never overwrite a completed mask.
 4. The workflow waits until `brain_mask_50um_complete.nii.gz` exists.
 5. The completed mask must be nonempty, binary, and on the expected review
