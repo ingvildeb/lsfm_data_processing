@@ -295,6 +295,95 @@ def test_content_addressed_source_presets_are_shared_by_scientific_content(
     assert presets[0].destination.name.startswith("registration_")
 
 
+def test_content_addressed_provenance_reuses_equivalent_scientific_preset(
+    tmp_path: Path,
+) -> None:
+    first = RescueGenerationRequest(
+        job=ExpandedRescueJob(
+            subject_id="A",
+            strategy_id="higher_gradient_step",
+            output_group="higher_gradient_step_rescue",
+            variant="gs0p06",
+            overrides=(("syn_gradient_step", 0.06),),
+            rationale="higher step",
+        ),
+        registration_spec=_registration_spec("A"),
+        base_preset=_base_preset(),
+        content_addressed_preset=True,
+    )
+    updated_base = _base_preset()
+    updated_base["registration"]["syn_gradient_step"] = 0.06
+    second = RescueGenerationRequest(
+        job=ExpandedRescueJob(
+            subject_id="B",
+            strategy_id="masking",
+            output_group="masking_rescue",
+            variant="from_baseline",
+            overrides=(),
+            rationale="masked retry",
+            source_run="registration_runs/baseline",
+        ),
+        registration_spec=_registration_spec("B"),
+        base_preset=updated_base,
+        content_addressed_preset=True,
+    )
+    kwargs = dict(
+        batch_id="batch001",
+        evaluation_workbook=tmp_path / "evaluation.xlsx",
+        configs_dir=tmp_path / "configs",
+        helper_path=tmp_path / "submit_rescues_hpc.sh",
+        job_name_prefix="test_rescue",
+    )
+
+    combined = plan_rescue_generation(**kwargs, requests=(first, second))
+    assert len([item for item in combined.files if item.purpose == "preset provenance"]) == 1
+    first_plan = plan_rescue_generation(**kwargs, requests=(first,))
+    apply_rescue_generation_plan(first_plan)
+    second_plan = plan_rescue_generation(**kwargs, requests=(second,))
+    provenance = next(
+        item for item in second_plan.files if item.purpose == "preset provenance"
+    )
+    assert provenance.state == "already_present"
+    apply_rescue_generation_plan(second_plan)
+
+
+def test_content_addressed_provenance_rejects_mismatched_scientific_hash(
+    tmp_path: Path,
+) -> None:
+    request = RescueGenerationRequest(
+        job=ExpandedRescueJob(
+            subject_id="A",
+            strategy_id="higher_gradient_step",
+            output_group="higher_gradient_step_rescue",
+            variant="gs0p06",
+            overrides=(("syn_gradient_step", 0.06),),
+            rationale="higher step",
+        ),
+        registration_spec=_registration_spec("A"),
+        base_preset=_base_preset(),
+        content_addressed_preset=True,
+    )
+    kwargs = dict(
+        batch_id="batch001",
+        evaluation_workbook=tmp_path / "evaluation.xlsx",
+        configs_dir=tmp_path / "configs",
+        helper_path=tmp_path / "submit_rescues_hpc.sh",
+        requests=(request,),
+        job_name_prefix="test_rescue",
+    )
+    plan = plan_rescue_generation(**kwargs)
+    apply_rescue_generation_plan(plan)
+    provenance = next(
+        item.destination for item in plan.files if item.purpose == "preset provenance"
+    )
+    changed = json.loads(provenance.read_text(encoding="utf-8"))
+    changed["scientific_sha256"] = "not-the-same-preset"
+    provenance.write_text(json.dumps(changed), encoding="utf-8")
+
+    with pytest.raises(FileExistsError, match="scientific preset"):
+        plan_rescue_generation(**kwargs)
+
+
 def test_immutable_job_collision_stops_planning(tmp_path: Path) -> None:
     request = RescueGenerationRequest(
         job=ExpandedRescueJob(

@@ -211,6 +211,44 @@ def _add_artifact(
     )
 
 
+def _add_preset_provenance(
+    planned: dict[Path, PlannedRescueArtifact],
+    *,
+    destination: Path,
+    content: bytes,
+    preset_name: str,
+    scientific_hash: str,
+) -> None:
+    existing = planned.get(destination)
+    if existing is not None:
+        prior = existing.content
+    elif destination.exists() and destination.is_file():
+        prior = destination.read_bytes()
+    else:
+        prior = content
+    if prior != content:
+        try:
+            provenance = json.loads(prior)
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise FileExistsError(
+                f"Rescue preset provenance is invalid: {destination}"
+            ) from exc
+        if (
+            not isinstance(provenance, dict)
+            or provenance.get("generated_preset") != preset_name
+            or provenance.get("scientific_sha256") != scientific_hash
+        ):
+            raise FileExistsError(
+                f"Rescue preset provenance conflicts with the scientific preset: {destination}"
+            )
+    _add_artifact(
+        planned,
+        destination=destination,
+        content=prior,
+        purpose="preset provenance",
+    )
+
+
 def plan_rescue_generation(
     *,
     batch_id: str,
@@ -266,11 +304,12 @@ def plan_rescue_generation(
         preset_provenance_content = (
             json.dumps(preset_provenance, indent=2, sort_keys=True) + "\n"
         ).encode("utf-8")
-        _add_artifact(
+        _add_preset_provenance(
             planned,
             destination=preset_path.with_suffix(".provenance.json"),
             content=preset_provenance_content,
-            purpose="preset provenance",
+            preset_name=preset_name,
+            scientific_hash=scientific_hash,
         )
 
         request_slug = _slug(job.strategy_id, field="request name")
