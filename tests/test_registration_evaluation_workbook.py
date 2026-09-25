@@ -19,6 +19,10 @@ from lsfm_data_processing.registration_and_transforms.project_workflow.schema im
     RUN_EVALUATIONS_SHEET,
     WORKFLOW_LISTS_SHEET,
 )
+from lsfm_data_processing.registration_and_transforms.project_workflow.rescue_catalog import (
+    canonical_rescue_strategies,
+    expected_rescue_run_paths,
+)
 from lsfm_data_processing.registration_and_transforms.project_workflow.workbook import (
     apply_evaluation_workbook_plan,
     build_evaluation_workbook_plan,
@@ -185,6 +189,52 @@ def test_refresh_closes_only_finished_rescue_sweeps(
     )
 
     assert plan.data.rescue_requests[0].status == expected
+
+
+@pytest.mark.parametrize(
+    ("manifest_status", "result", "run_path", "expected_status"),
+    (
+        ("success", "excellent", "registration_runs/masking_rescue/from_padding_rescue_wr20um_pad500um", "completed"),
+        ("success", "", "registration_runs/masking_rescue/from_padding_rescue_wr20um_pad500um", "generated"),
+        ("failed", "", "registration_runs/masking_rescue/from_padding_rescue_wr20um_pad500um", "failed"),
+        ("success", "excellent", "registration_runs/masking_rescue/from_other_run", "generated"),
+    ),
+)
+def test_refresh_closes_evaluated_masking_rescue(
+    tmp_path: Path, manifest_status: str, result: str, run_path: str,
+    expected_status: str,
+) -> None:
+    source_run = "registration_runs/padding_rescue/wr20um_pad500um"
+    path = tmp_path / "registration_evaluation.xlsx"
+    workbook = Workbook()
+    run_sheet = workbook.active
+    run_sheet.title = RUN_EVALUATIONS_SHEET
+    run_sheet.append(RUN_EVALUATION_COLUMNS)
+    run_sheet.append(("IEB0167", run_path, "", manifest_status, result,
+                      "", "yes", "", None))
+    rescue_sheet = workbook.create_sheet(RESCUE_REQUESTS_SHEET)
+    rescue_sheet.append(RESCUE_REQUEST_COLUMNS)
+    rescue_sheet.append(("IEB0167", "masking", source_run, "", None, None,
+                         None, "", "generated"))
+    workbook.save(path)
+
+    masking = next(
+        strategy for strategy in canonical_rescue_strategies()
+        if strategy.strategy_id == "masking"
+    )
+    assert expected_rescue_run_paths(
+        RescueRequest("IEB0167", "masking", source_run), masking
+    ) == ("registration_runs/masking_rescue/from_padding_rescue_wr20um_pad500um",)
+    plan = build_evaluation_workbook_plan(
+        path=path,
+        discovered_runs=(RunEvaluation("IEB0167", run_path,
+                                       manifest_status=manifest_status),),
+        strategies=canonical_rescue_strategies(),
+    )
+
+    assert plan.data.rescue_requests[0].status == expected_status
+    apply_evaluation_workbook_plan(plan)
+    assert read_evaluation_workbook(path).rescue_requests[0].status == expected_status
 
 
 def test_apply_rejects_workbook_changed_after_planning(tmp_path: Path) -> None:
