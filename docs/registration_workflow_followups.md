@@ -7,6 +7,48 @@ registration batches have completed.
 
 ## Open Items
 
+### Support source-derived automatic rescues
+
+Automatic rescue strategies currently record an optional source run for
+provenance, but generate their parameter preset from the project baseline.
+Only masking and high-memory retries currently reproduce source-run
+parameters. This makes a populated `Source run` field misleading for standard
+gradient, resolution, and padding strategies.
+
+Proposed direction: make automatic rescues source-derived when `Source run` is
+provided. A blank source run means the project baseline; a populated source
+run means load that run's `registration_parameters.yaml`, then apply the
+strategy's explicit parameter values while preserving all other parameters.
+Rename relative-sounding menu entries to explicit value sweeps, for example
+`gradient sweep: 0.01, 0.02, 0.025`, so their meaning remains clear even when
+the source run has a non-baseline gradient step.
+
+Source-derived jobs must use source-specific output variants, TOML filenames,
+and expected-run status matching to avoid colliding with an equivalent
+baseline-derived rescue for the same subject. For example, a 0.06 gradient
+step derived from `custom_rescue/pad1000um` should be represented as
+`from_custom_rescue_pad1000um_gs0p06`, not merely `gs0p06`.
+
+Do not retrofit this behavior to active or completed batches. Use `custom`
+for any required iterative combination until the shared behavior is released.
+
+### Separate human-facing run labels from content-addressed preset IDs
+
+Generated rescue presets currently use content-addressed names such as
+`registration_0f48f693ed5a`. These names are deliberately based on the full
+scientific preset, rather than a short label such as `pad500um`: the same
+readable override can be applied to different inherited parameter sets, and
+historical batches can contain different presets with the same readable name.
+The hash therefore prevents silent reuse of scientifically different files.
+
+The technical preset ID should not be presented as an evaluator-facing label.
+The human-readable identity of a run is its run path, strategy, source run,
+and explicit variant/parameter values. Proposed direction: retain the preset
+ID in TOMLs, manifests, and provenance, but remove or hide `Preset name` from
+the active evaluation view and rely on `Run path` (with an optional
+human-readable parameter summary) instead. Preserve backwards-compatible
+reading of existing workbooks while introducing the finalized workbook view.
+
 ### Replace the `BatchSubject` compatibility adapter
 
 The project adapters currently convert shared `BatchMember` records into a
