@@ -1,10 +1,15 @@
 import tomllib
 import json
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
 import yaml
 
+from lsfm_data_processing.registration_and_transforms.batch_registration.hpc.verify_rescue_input import (
+    verify_rescue_input,
+    verify_rescue_input_for_config,
+)
 from lsfm_data_processing.registration_and_transforms.project_workflow.decisions import (
     resolve_final_decisions,
     resolve_rescue_requests,
@@ -25,6 +30,7 @@ from lsfm_data_processing.registration_and_transforms.project_workflow.rescue_ca
     expand_rescue_request_plan,
 )
 from lsfm_data_processing.registration_and_transforms.project_workflow.rescue_generation import (
+    RESCUE_GENERATION_MANIFEST_FILENAME,
     RescueGenerationRequest,
     apply_rescue_generation_plan,
     plan_rescue_generation,
@@ -67,6 +73,13 @@ def _registration_spec(subject_id: str) -> RegistrationBatchSpec:
         moving_segmentation_interpolation="genericLabel",
         moving_segmentations_write_intermediates=False,
     )
+
+
+def _subject_image_source(tmp_path: Path, subject_id: str) -> Path:
+    path = tmp_path / "local_subject_inputs" / subject_id / "native.nii.gz"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(f"subject input {subject_id}".encode("ascii"))
+    return path
 
 
 def _resolved(*requests: RescueRequest):
@@ -222,6 +235,7 @@ def test_source_derived_request_inherits_parameters_and_subject_image(
         registration_spec=_registration_spec("A"),
         baseline_preset=_base_preset(),
         subject_dir=subject_dir,
+        subject_image_source=_subject_image_source(tmp_path, "A"),
     )
 
     assert request.content_addressed_preset is True
@@ -398,6 +412,7 @@ def test_end_to_end_plan_reuses_presets_but_keeps_jobs_subject_specific(
             ),
             registration_spec=_registration_spec(subject),
             base_preset=_base_preset(),
+            subject_image_source=_subject_image_source(tmp_path, subject),
         )
         for subject in ("A", "B")
     )
@@ -414,12 +429,13 @@ def test_end_to_end_plan_reuses_presets_but_keeps_jobs_subject_specific(
         item for item in plan.files if item.purpose == "generated registration preset"
     ]
     configs = [item for item in plan.files if item.purpose == "registration config"]
-    job_provenance = [
-        item for item in plan.files if item.purpose == "registration job provenance"
+    manifests = [
+        item for item in plan.files if item.purpose == "rescue generation manifest"
     ]
     assert len(presets) == 1
     assert len(configs) == 2
-    assert len(job_provenance) == 2
+    assert len(manifests) == 1
+    assert not any("provenance" in item.destination.name for item in plan.files)
     assert {item.destination.name for item in configs} == {
         "higher_gradient_step_a_gs0p06.toml",
         "higher_gradient_step_b_gs0p06.toml",
@@ -427,9 +443,13 @@ def test_end_to_end_plan_reuses_presets_but_keeps_jobs_subject_specific(
     generated = yaml.safe_load(presets[0].content)
     assert generated["registration"]["syn_gradient_step"] == 0.06
     assert generated["registration"]["working_resolution_um"] == 20
-    first_job_provenance = json.loads(job_provenance[0].content)
-    assert first_job_provenance["subject_image"].endswith("/native.nii.gz")
-    assert first_job_provenance["config_sha256"]
+    provenance = json.loads(manifests[0].content)
+    assert len(provenance["jobs"]) == 2
+    first_job = provenance["jobs"]["higher_gradient_step_a_gs0p06.toml"]
+    assert first_job["subject_input"]["hpc_path"].endswith("/native.nii.gz")
+    assert first_job["subject_input"]["size_bytes"] > 0
+    assert len(first_job["subject_input"]["sha256"]) == 64
+    assert first_job["config_sha256"]
 
     apply_rescue_generation_plan(plan)
     resumed = plan_rescue_generation(
@@ -459,6 +479,7 @@ def test_content_addressed_source_presets_are_shared_by_scientific_content(
             ),
             registration_spec=_registration_spec(subject),
             base_preset=_base_preset(),
+            subject_image_source=_subject_image_source(tmp_path, subject),
             content_addressed_preset=True,
         )
         for subject in ("A", "B")
@@ -494,6 +515,7 @@ def test_content_addressed_provenance_reuses_equivalent_scientific_preset(
         ),
         registration_spec=_registration_spec("A"),
         base_preset=_base_preset(),
+        subject_image_source=_subject_image_source(tmp_path, "A"),
         content_addressed_preset=True,
     )
     updated_base = _base_preset()
@@ -510,6 +532,7 @@ def test_content_addressed_provenance_reuses_equivalent_scientific_preset(
         ),
         registration_spec=_registration_spec("B"),
         base_preset=updated_base,
+        subject_image_source=_subject_image_source(tmp_path, "B"),
         content_addressed_preset=True,
     )
     kwargs = dict(
@@ -521,14 +544,20 @@ def test_content_addressed_provenance_reuses_equivalent_scientific_preset(
     )
 
     combined = plan_rescue_generation(**kwargs, requests=(first, second))
-    assert len([item for item in combined.files if item.purpose == "preset provenance"]) == 1
+    manifest = next(
+        item for item in combined.files if item.purpose == "rescue generation manifest"
+    )
+    assert len(json.loads(manifest.content)["presets"]) == 1
     first_plan = plan_rescue_generation(**kwargs, requests=(first,))
     apply_rescue_generation_plan(first_plan)
     second_plan = plan_rescue_generation(**kwargs, requests=(second,))
     provenance = next(
-        item for item in second_plan.files if item.purpose == "preset provenance"
+        item
+        for item in second_plan.files
+        if item.purpose == "rescue generation manifest"
     )
-    assert provenance.state == "already_present"
+    assert provenance.state == "replace"
+    assert len(json.loads(provenance.content)["presets"]) == 1
     apply_rescue_generation_plan(second_plan)
 
 
@@ -546,6 +575,7 @@ def test_content_addressed_provenance_rejects_mismatched_scientific_hash(
         ),
         registration_spec=_registration_spec("A"),
         base_preset=_base_preset(),
+        subject_image_source=_subject_image_source(tmp_path, "A"),
         content_addressed_preset=True,
     )
     kwargs = dict(
@@ -559,13 +589,16 @@ def test_content_addressed_provenance_rejects_mismatched_scientific_hash(
     plan = plan_rescue_generation(**kwargs)
     apply_rescue_generation_plan(plan)
     provenance = next(
-        item.destination for item in plan.files if item.purpose == "preset provenance"
+        item.destination
+        for item in plan.files
+        if item.purpose == "rescue generation manifest"
     )
     changed = json.loads(provenance.read_text(encoding="utf-8"))
-    changed["scientific_sha256"] = "not-the-same-preset"
+    preset = next(iter(changed["presets"].values()))
+    preset["scientific_sha256"] = "not-the-same-preset"
     provenance.write_text(json.dumps(changed), encoding="utf-8")
 
-    with pytest.raises(FileExistsError, match="scientific preset"):
+    with pytest.raises(FileExistsError, match="preset provenance differs"):
         plan_rescue_generation(**kwargs)
 
 
@@ -581,6 +614,7 @@ def test_immutable_job_collision_stops_planning(tmp_path: Path) -> None:
         ),
         registration_spec=_registration_spec("A"),
         base_preset=_base_preset(),
+        subject_image_source=_subject_image_source(tmp_path, "A"),
     )
     kwargs = dict(
         batch_id="batch001",
@@ -599,3 +633,150 @@ def test_immutable_job_collision_stops_planning(tmp_path: Path) -> None:
 
     with pytest.raises(FileExistsError, match="exists and differs"):
         plan_rescue_generation(**kwargs)
+
+
+def test_generated_manifest_reconstructs_only_unfinished_helper_jobs(
+    tmp_path: Path,
+) -> None:
+    requests = tuple(
+        RescueGenerationRequest(
+            job=ExpandedRescueJob(
+                subject_id=subject,
+                strategy_id="higher_gradient_step",
+                output_group="higher_gradient_step_rescue",
+                variant="gs0p06",
+                overrides=(("syn_gradient_step", 0.06),),
+                rationale="higher step",
+            ),
+            registration_spec=_registration_spec(subject),
+            base_preset=_base_preset(),
+            subject_image_source=_subject_image_source(tmp_path, subject),
+        )
+        for subject in ("A", "B")
+    )
+    kwargs = dict(
+        batch_id="batch001",
+        evaluation_workbook=tmp_path / "evaluation.xlsx",
+        configs_dir=tmp_path / "configs",
+        helper_path=tmp_path / "submit_rescues_hpc.sh",
+        job_name_prefix="test_rescue",
+    )
+    apply_rescue_generation_plan(
+        plan_rescue_generation(**kwargs, requests=requests)
+    )
+    result_path = (
+        tmp_path
+        / "subjects"
+        / "A"
+        / "registration_runs"
+        / "higher_gradient_step_rescue"
+        / "gs0p06"
+        / "registration_result.json"
+    )
+    result_path.parent.mkdir(parents=True)
+    result_path.write_text(json.dumps({"success": False}), encoding="utf-8")
+
+    resumed = plan_rescue_generation(**kwargs, requests=())
+
+    assert [run.subject_ids for run in resumed.runs] == [("B",)]
+    helper = next(
+        item for item in resumed.files if item.purpose == "HPC submission helper"
+    ).content.decode("utf-8")
+    assert "higher_gradient_step_b_gs0p06.toml" in helper
+    assert "higher_gradient_step_a_gs0p06.toml" not in helper
+    assert "verify_rescue_input" in helper
+    assert RESCUE_GENERATION_MANIFEST_FILENAME in helper
+
+
+def test_revised_subject_input_refreshes_manifest_without_rewriting_config(
+    tmp_path: Path,
+) -> None:
+    source = _subject_image_source(tmp_path, "A")
+    request = RescueGenerationRequest(
+        job=ExpandedRescueJob(
+            subject_id="A",
+            strategy_id="masking",
+            output_group="masking_rescue",
+            variant="from_baseline",
+            overrides=(),
+            rationale="masked retry",
+            source_run="registration_runs/baseline",
+        ),
+        registration_spec=_registration_spec("A"),
+        base_preset=_base_preset(),
+        subject_image_source=source,
+        content_addressed_preset=True,
+    )
+    kwargs = dict(
+        batch_id="batch001",
+        evaluation_workbook=tmp_path / "evaluation.xlsx",
+        configs_dir=tmp_path / "configs",
+        helper_path=tmp_path / "submit_rescues_hpc.sh",
+        requests=(request,),
+        job_name_prefix="test_rescue",
+    )
+    first = plan_rescue_generation(**kwargs)
+    apply_rescue_generation_plan(first)
+    config = next(
+        item.destination for item in first.files if item.purpose == "registration config"
+    )
+    config_content = config.read_bytes()
+    manifest_path = tmp_path / "configs" / RESCUE_GENERATION_MANIFEST_FILENAME
+    original = json.loads(manifest_path.read_text(encoding="utf-8"))
+    original_input = next(iter(original["jobs"].values()))["subject_input"]
+
+    source.write_bytes(b"revised masked subject input")
+    revised = plan_rescue_generation(**kwargs)
+    manifest_artifact = next(
+        item for item in revised.files if item.purpose == "rescue generation manifest"
+    )
+    revised_manifest = json.loads(manifest_artifact.content)
+    revised_job = next(iter(revised_manifest["jobs"].values()))
+
+    assert manifest_artifact.state == "replace"
+    assert revised_job["subject_input"]["sha256"] != original_input["sha256"]
+    assert "input_updated_at" in revised_job
+    assert config.read_bytes() == config_content
+
+
+def test_hpc_input_verification_reports_match_and_rejects_stale_copy(
+    tmp_path: Path,
+) -> None:
+    hpc_input = tmp_path / "subjects" / "A" / "ch2_native20um_masked.nii.gz"
+    hpc_input.parent.mkdir(parents=True)
+    hpc_input.write_bytes(b"current masked input")
+    digest = sha256(hpc_input.read_bytes()).hexdigest()
+    config = tmp_path / "configs" / "masking_a_from_baseline.toml"
+    config.parent.mkdir()
+    config.write_text("# test config\n", encoding="utf-8")
+    manifest = {
+        "schema_version": 1,
+        "batch_id": "batch001",
+        "presets": {},
+        "jobs": {
+            config.name: {
+                "subject_id": "A",
+                "subject_input": {
+                    "hpc_path": str(hpc_input),
+                    "size_bytes": hpc_input.stat().st_size,
+                    "sha256": digest,
+                },
+            }
+        },
+    }
+    manifest_path = config.parent / RESCUE_GENERATION_MANIFEST_FILENAME
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    assert verify_rescue_input(manifest_path, config.name) == (
+        "A input: ch2_native20um_masked.nii.gz. verified sha256: yes"
+    )
+    assert verify_rescue_input_for_config(config).endswith(
+        "verified sha256: yes"
+    )
+    baseline = config.parent / "baseline.toml"
+    baseline.write_text("# baseline\n", encoding="utf-8")
+    assert verify_rescue_input_for_config(baseline) is None
+
+    hpc_input.write_bytes(b"stale masked input")
+    with pytest.raises(RuntimeError, match="Transfer the updated file"):
+        verify_rescue_input(manifest_path, config.name)

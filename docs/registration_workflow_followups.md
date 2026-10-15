@@ -108,19 +108,15 @@ Do not remove the adapters while any project still depends on them.
 
 ### Consolidate rescue provenance
 
-The current rescue-generation workflow writes a provenance JSON sidecar for
-each generated rescue TOML. This is useful for auditability, but produces a
-large amount of repetitive configuration clutter.
+Implementation status: implemented on the development branch; awaiting
+project-adapter wiring and candidate validation.
 
-Proposed direction: replace per-TOML provenance sidecars with one
-batch-level `configs/rescue_generation_manifest.json` that records each
+The candidate workflow replaces per-TOML provenance sidecars with one
+batch-level `configs/rescue_generation_manifest.json`. It records each
 generated TOML, subject, strategy, source run, effective parameter overrides,
-workbook rationale, generation timestamp, and package/runtime provenance. Keep
-the effective parameters in each TOML and runtime provenance in the
-registration output.
-
-Do not remove the current sidecars until the manifest schema and migration
-path have been designed and the active project workflows have been checked.
+workbook rationale, generation timestamp, and package provenance. Effective
+parameters remain in each TOML, and registration outputs retain runtime
+provenance.
 
 The consolidated manifest must also record the size and SHA256 digest of every
 subject-image input, especially generated masked images. Submission preflight
@@ -132,11 +128,14 @@ must stop submission with a direct instruction to transfer the updated file.
 
 ### Reconstruct submission helpers from unfinished generated requests
 
+Implementation status: implemented on the development branch; awaiting
+project-adapter wiring and candidate validation.
+
 A rescue request marked `generated` may outlive, or become disconnected from,
-its batch submission helper. Rerunning rescue preparation must be able to
-reconstruct the helper from generated artifacts and current run manifests,
-without regenerating scientifically immutable TOMLs or asking the user to reset
-the workbook status manually.
+its batch submission helper. The candidate workflow reconstructs the helper
+from the consolidated generation manifest and current run manifests without
+regenerating scientifically immutable TOMLs or asking the user to reset the
+workbook status manually.
 
 Include generated requests that have no terminal registration result. Exclude
 requests whose expected runs are complete or failed. Helper generation must be

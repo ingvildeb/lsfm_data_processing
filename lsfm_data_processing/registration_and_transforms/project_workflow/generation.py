@@ -192,14 +192,28 @@ def render_hpc_submission_helper(
     helper_filename: str,
     job_name_prefix: str,
     log_dir: str,
+    input_manifest: str | None = None,
+    allow_empty: bool = False,
 ) -> str:
     """Render a dry-run/submit helper with optional per-job memory overrides."""
 
-    if not entries:
+    if not entries and not allow_empty:
         raise ValueError("At least one registration config is required")
     specifications = "\n".join(
         f'  "{entry.config_filename}|{entry.mem_gb or ""}"' for entry in entries
     )
+    manifest_setup = ""
+    manifest_preflight = ""
+    if input_manifest is not None:
+        manifest_setup = f'''INPUT_MANIFEST="$BATCH_ROOT/{input_manifest}"
+[[ -f "$INPUT_MANIFEST" ]] || {{ echo "Missing rescue manifest: $INPUT_MANIFEST" >&2; exit 1; }}
+'''
+        manifest_preflight = '''
+for specification in "${CONFIG_SPECS[@]}"; do
+  IFS='|' read -r config _ <<< "$specification"
+  python -m lsfm_data_processing.registration_and_transforms.batch_registration.hpc.verify_rescue_input "$INPUT_MANIFEST" "$config"
+done
+'''
     return f'''#!/usr/bin/env bash
 set -euo pipefail
 
@@ -212,7 +226,7 @@ esac
 
 BATCH_ROOT="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
 HPC_CONFIG="$BATCH_ROOT/configs/hpc.toml"
-CONFIG_SPECS=(
+{manifest_setup}CONFIG_SPECS=(
 {specifications}
 )
 
@@ -223,6 +237,7 @@ for specification in "${{CONFIG_SPECS[@]}}"; do
 done
 
 python -m lsfm_data_processing.registration_and_transforms.runtime_contract
+{manifest_preflight}
 
 BACKUP="$(mktemp)"
 cp "$HPC_CONFIG" "$BACKUP"

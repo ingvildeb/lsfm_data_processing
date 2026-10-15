@@ -191,9 +191,10 @@ and scientific overrides. Source-derived presets used by masking and exact
 retries are named by scientific-content hash. They are never named for a
 subject, and equivalent source parameter snapshots reuse the same preset.
 
-Preset provenance records only scientific origin and overrides. Subject,
-request, source-run, input-image, output, config hash, and HPC-resource
-provenance are stored beside each subject-specific registration TOML.
+Preset scientific identity and content hashes are recorded in the batch-level
+`configs/rescue_generation_manifest.json`. Equivalent content-addressed
+presets share one record even when they were derived through different
+base-plus-override histories.
 
 ### Registration Configurations
 
@@ -211,12 +212,25 @@ changing an earlier TOML. A representative name is:
 An identical existing configuration is reused. Different content for the same
 artifact identity is a conflict.
 
+The consolidated rescue-generation manifest records each configuration's
+subject, strategy, variant, source run, output path, parameter overrides,
+resource request, rationale, config hash, and subject-image provenance. Input
+provenance includes the local source, HPC path, byte size, and SHA-256 digest.
+Scientifically immutable TOMLs remain unchanged when a revised masked image
+updates only the recorded input digest.
+
 ### Derived Submission Helpers
 
 Submission helpers are generated indexes of pending configurations. They may
 be regenerated atomically when the request set changes, provided they are
 clearly marked as generated and are not treated as user-editable scientific
-records.
+records. A missing or stale helper is reconstructed from the consolidated
+manifest: jobs with no terminal result remain included, while both successful
+and failed result manifests are terminal and omitted.
+
+Before submission and again at job startup, rescue inputs are checked against
+their recorded byte size and SHA-256 digest. A missing or stale HPC input is a
+hard error with an instruction to transfer the locally generated input.
 
 ### Registration Outputs
 

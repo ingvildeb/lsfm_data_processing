@@ -11,6 +11,9 @@ from lsfm_data_processing.registration_and_transforms.runtime_contract import (
     format_registration_runtime,
     validate_registration_runtime,
 )
+from lsfm_data_processing.registration_and_transforms.batch_registration.hpc.verify_rescue_input import (
+    verify_rescue_input_for_config,
+)
 
 
 parser = argparse.ArgumentParser(
@@ -35,6 +38,9 @@ registration_runtime = validate_registration_runtime(
 )
 print("Registration runtime preflight:")
 print(format_registration_runtime(registration_runtime))
+input_verification = verify_rescue_input_for_config(registration_config)
+if input_verification is not None:
+    print(input_verification)
 
 settings = load_batch_register_settings_from_path(registration_config)
 job_spec = get_batch_job_spec(settings, args.job_index)

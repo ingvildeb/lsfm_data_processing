@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from hashlib import sha256
+from importlib.metadata import PackageNotFoundError, version
 import json
 from pathlib import Path, PurePosixPath
 import re
@@ -27,6 +29,7 @@ PARAMETER_SECTIONS = {
     "working_resolution_um": "registration",
     "fixed_padding_um": "preprocessing",
 }
+RESCUE_GENERATION_MANIFEST_FILENAME = "rescue_generation_manifest.json"
 
 
 @dataclass(frozen=True)
@@ -36,6 +39,7 @@ class RescueGenerationRequest:
     job: ExpandedRescueJob
     registration_spec: RegistrationBatchSpec
     base_preset: Mapping[str, Any]
+    subject_image_source: Path | None = None
     content_addressed_preset: bool = False
 
 
@@ -164,6 +168,7 @@ def source_derived_generation_request(
     registration_spec: RegistrationBatchSpec,
     baseline_preset: Mapping[str, Any],
     subject_dir: Path,
+    subject_image_source: Path | None = None,
     subject_image_override: str | PurePosixPath | None = None,
     content_addressed_preset: bool = False,
 ) -> RescueGenerationRequest:
@@ -183,6 +188,7 @@ def source_derived_generation_request(
             job=job,
             registration_spec=registration_spec,
             base_preset=baseline_preset,
+            subject_image_source=subject_image_source,
             content_addressed_preset=content_addressed_preset,
         )
     context = load_rescue_source_context(
@@ -213,6 +219,7 @@ def source_derived_generation_request(
         job=job,
         registration_spec=replace(registration_spec, images=inherited_images),
         base_preset=context.parameter_snapshot,
+        subject_image_source=subject_image_source,
         content_addressed_preset=True,
     )
 
@@ -334,41 +341,116 @@ def _add_artifact(
     )
 
 
-def _add_preset_provenance(
-    planned: dict[Path, PlannedRescueArtifact],
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _package_version() -> str:
+    try:
+        return version("lsfm-data-processing")
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def _load_generation_manifest(path: Path, *, batch_id: str) -> dict[str, Any]:
+    if not path.exists():
+        timestamp = datetime.now(timezone.utc).isoformat()
+        return {
+            "schema_version": 1,
+            "batch_id": batch_id,
+            "created_at": timestamp,
+            "generator": {
+                "package": "lsfm-data-processing",
+                "version": _package_version(),
+            },
+            "presets": {},
+            "jobs": {},
+        }
+    if not path.is_file():
+        raise FileExistsError(f"Rescue generation manifest is not a file: {path}")
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Invalid rescue generation manifest: {path}") from exc
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("schema_version") != 1
+        or manifest.get("batch_id") != batch_id
+        or not isinstance(manifest.get("presets"), dict)
+        or not isinstance(manifest.get("jobs"), dict)
+    ):
+        raise ValueError(f"Unsupported rescue generation manifest: {path}")
+    return manifest
+
+
+def _merge_manifest_record(
+    records: dict[str, Any],
     *,
-    destination: Path,
-    content: bytes,
-    preset_name: str,
-    scientific_hash: str,
+    key: str,
+    record: dict[str, Any],
+    label: str,
 ) -> None:
-    existing = planned.get(destination)
-    if existing is not None:
-        prior = existing.content
-    elif destination.exists() and destination.is_file():
-        prior = destination.read_bytes()
-    else:
-        prior = content
-    if prior != content:
-        try:
-            provenance = json.loads(prior)
-        except (UnicodeDecodeError, ValueError) as exc:
-            raise FileExistsError(
-                f"Rescue preset provenance is invalid: {destination}"
-            ) from exc
-        if (
-            not isinstance(provenance, dict)
-            or provenance.get("generated_preset") != preset_name
-            or provenance.get("scientific_sha256") != scientific_hash
-        ):
-            raise FileExistsError(
-                f"Rescue preset provenance conflicts with the scientific preset: {destination}"
-            )
-    _add_artifact(
-        planned,
-        destination=destination,
-        content=prior,
-        purpose="preset provenance",
+    existing = records.get(key)
+    if existing is not None and existing != record:
+        raise FileExistsError(
+            f"Existing rescue {label} provenance differs for {key}"
+        )
+    records[key] = record
+
+
+def _merge_job_manifest_record(
+    records: dict[str, Any],
+    *,
+    key: str,
+    record: dict[str, Any],
+) -> None:
+    existing = records.get(key)
+    if existing is None:
+        records[key] = record
+        return
+    if not isinstance(existing, dict):
+        raise FileExistsError(f"Existing rescue job provenance is invalid for {key}")
+    mutable = {"generated_at", "input_updated_at", "rationale", "subject_input"}
+    old_immutable = {name: value for name, value in existing.items() if name not in mutable}
+    new_immutable = {name: value for name, value in record.items() if name not in mutable}
+    if old_immutable != new_immutable:
+        raise FileExistsError(f"Existing rescue job provenance differs for {key}")
+    record["generated_at"] = existing.get("generated_at", record["generated_at"])
+    if existing.get("subject_input") != record.get("subject_input"):
+        record["input_updated_at"] = datetime.now(timezone.utc).isoformat()
+    elif "input_updated_at" in existing:
+        record["input_updated_at"] = existing["input_updated_at"]
+    records[key] = record
+
+
+def _terminal_registration_result(path: Path) -> bool:
+    if not path.exists():
+        return False
+    if not path.is_file():
+        raise FileExistsError(f"Registration result is not a file: {path}")
+    try:
+        result = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Invalid registration result manifest: {path}") from exc
+    if not isinstance(result.get("success"), bool):
+        raise ValueError(f"Registration result has no Boolean success field: {path}")
+    return True
+
+
+def _planned_run_from_manifest(record: Mapping[str, Any]) -> PlannedRescueRun:
+    return PlannedRescueRun(
+        request_name=str(record["strategy_id"]),
+        variant=str(record["variant"]),
+        subject_ids=(str(record["subject_id"]),),
+        config_filename=str(record["config_filename"]),
+        output_subdir=str(record["output_subdir"]),
+        overrides=dict(record.get("parameter_overrides", {})),
+        source_run=str(record.get("source_run") or ""),
+        hpc_mem_gb=record.get("hpc_mem_gb"),
     )
 
 
@@ -382,13 +464,16 @@ def plan_rescue_generation(
     job_name_prefix: str,
     log_dir: str = "logs/rescue",
 ) -> RescueGenerationPlan:
-    """Plan every preset, TOML, provenance file, and submission helper."""
+    """Plan immutable rescue artifacts and reconstruct unfinished submissions."""
 
-    if not requests:
+    configs_dir = Path(configs_dir)
+    manifest_path = configs_dir / RESCUE_GENERATION_MANIFEST_FILENAME
+    if not requests and not manifest_path.is_file():
         return RescueGenerationPlan(batch_id, Path(evaluation_workbook), (), ())
     planned: dict[Path, PlannedRescueArtifact] = {}
-    runs: list[PlannedRescueRun] = []
-    helper_entries: list[HpcSubmissionEntry] = []
+    manifest = _load_generation_manifest(manifest_path, batch_id=batch_id)
+    presets = manifest["presets"]
+    jobs = manifest["jobs"]
     for request in requests:
         job = request.job
         overrides = job.override_mapping
@@ -412,27 +497,25 @@ def plan_rescue_generation(
         )
 
         base_hash = _stable_hash(_scientific_payload(request.base_preset))
-        preset_provenance = {
-            "schema_version": 1,
-            "base_preset_name": (
-                None
-                if request.content_addressed_preset
-                else str(request.base_preset.get("name", ""))
-            ),
-            "base_scientific_sha256": base_hash,
+        preset_key = preset_relative.as_posix()
+        preset_record = {
             "generated_preset": preset_name,
             "scientific_sha256": scientific_hash,
-            "overrides": overrides,
+            "content_sha256": sha256(preset_content).hexdigest(),
         }
-        preset_provenance_content = (
-            json.dumps(preset_provenance, indent=2, sort_keys=True) + "\n"
-        ).encode("utf-8")
-        _add_preset_provenance(
-            planned,
-            destination=preset_path.with_suffix(".provenance.json"),
-            content=preset_provenance_content,
-            preset_name=preset_name,
-            scientific_hash=scientific_hash,
+        if not request.content_addressed_preset:
+            preset_record.update(
+                {
+                    "base_preset_name": str(request.base_preset.get("name", "")),
+                    "base_scientific_sha256": base_hash,
+                    "overrides": overrides,
+                }
+            )
+        _merge_manifest_record(
+            presets,
+            key=preset_key,
+            record=preset_record,
+            label="preset",
         )
 
         request_slug = _slug(job.strategy_id, field="request name")
@@ -467,8 +550,22 @@ def plan_rescue_generation(
             raise ValueError(
                 f"Registration spec must contain exactly one image for {job.subject_id}"
             )
-        job_provenance = {
-            "schema_version": 1,
+        if request.subject_image_source is None:
+            raise ValueError(
+                f"Rescue request for {job.subject_id} must provide subject_image_source"
+            )
+        subject_image_source = Path(request.subject_image_source)
+        if not subject_image_source.is_file():
+            raise FileNotFoundError(
+                f"Local rescue subject image is missing: {subject_image_source}"
+            )
+        existing_job = jobs.get(config_filename)
+        generated_at = (
+            existing_job.get("generated_at")
+            if isinstance(existing_job, dict) and existing_job.get("generated_at")
+            else datetime.now(timezone.utc).isoformat()
+        )
+        job_record = {
             "subject_id": job.subject_id,
             "strategy_id": job.strategy_id,
             "variant": job.variant,
@@ -481,29 +578,56 @@ def plan_rescue_generation(
             "hpc_mem_gb": job.hpc_mem_gb,
             "rationale": job.rationale,
             "config_sha256": sha256(config_content).hexdigest(),
+            "config_filename": config_filename,
+            "generated_at": generated_at,
+            "subject_input": {
+                "local_source": str(subject_image_source),
+                "hpc_path": str(subject_images[0].path),
+                "size_bytes": subject_image_source.stat().st_size,
+                "sha256": _file_sha256(subject_image_source),
+            },
         }
-        job_provenance_content = (
-            json.dumps(job_provenance, indent=2, sort_keys=True) + "\n"
-        ).encode("utf-8")
-        _add_artifact(
-            planned,
-            destination=config_path.with_suffix(".provenance.json"),
-            content=job_provenance_content,
-            purpose="registration job provenance",
-        )
-        runs.append(
-            PlannedRescueRun(
-                request_name=job.strategy_id,
-                variant=job.variant,
-                subject_ids=(job.subject_id,),
-                config_filename=config_filename,
-                output_subdir=output_subdir,
-                overrides=overrides,
-                source_run=job.source_run,
-                hpc_mem_gb=job.hpc_mem_gb,
+        _merge_job_manifest_record(jobs, key=config_filename, record=job_record)
+
+    manifest_content = (
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    _add_artifact(
+        planned,
+        destination=manifest_path,
+        content=manifest_content,
+        purpose="rescue generation manifest",
+        replace_generated=True,
+    )
+
+    runs: list[PlannedRescueRun] = []
+    helper_entries: list[HpcSubmissionEntry] = []
+    batch_root = configs_dir.parent
+    for config_filename, record in sorted(jobs.items()):
+        if not isinstance(record, dict):
+            raise ValueError(
+                f"Invalid rescue job provenance for {config_filename}"
             )
+        config_path = configs_dir / config_filename
+        planned_config = planned.get(config_path)
+        if not config_path.is_file() and planned_config is None:
+            raise FileNotFoundError(
+                f"Generated rescue config is missing: {config_path}"
+            )
+        output_manifest = (
+            batch_root
+            / "subjects"
+            / str(record["subject_id"])
+            / Path(str(record["output_subdir"]))
+            / "registration_result.json"
         )
-        helper_entries.append(HpcSubmissionEntry(config_filename, job.hpc_mem_gb))
+        if _terminal_registration_result(output_manifest):
+            continue
+        run = _planned_run_from_manifest(record)
+        runs.append(run)
+        helper_entries.append(
+            HpcSubmissionEntry(run.config_filename, run.hpc_mem_gb)
+        )
 
     helper_content = render_hpc_submission_helper(
         batch_id=batch_id,
@@ -511,6 +635,10 @@ def plan_rescue_generation(
         helper_filename=Path(helper_path).name,
         job_name_prefix=job_name_prefix,
         log_dir=log_dir,
+        input_manifest=(
+            PurePosixPath("configs") / RESCUE_GENERATION_MANIFEST_FILENAME
+        ).as_posix(),
+        allow_empty=True,
     ).encode("utf-8")
     _add_artifact(
         planned,
@@ -556,7 +684,10 @@ def apply_rescue_generation_plan(plan: RescueGenerationPlan) -> None:
         if item.destination.exists():
             if item.destination.is_file() and item.destination.read_bytes() == item.content:
                 continue
-            if item.state == "replace" and item.purpose == "HPC submission helper":
+            if item.state == "replace" and item.purpose in {
+                "HPC submission helper",
+                "rescue generation manifest",
+            }:
                 temporary = item.destination.with_name(f".{item.destination.name}.tmp")
                 temporary.write_bytes(item.content)
                 temporary.replace(item.destination)
