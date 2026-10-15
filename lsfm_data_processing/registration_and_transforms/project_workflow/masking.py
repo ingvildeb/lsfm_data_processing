@@ -165,6 +165,24 @@ def masking_statuses(
     return {plan.request.key: plan.state for plan in plans}
 
 
+def masking_plans_ready_for_rescue(
+    plans: Iterable[MaskingPlan],
+    *,
+    include_pending_application: bool = False,
+) -> tuple[MaskingPlan, ...]:
+    """Return masks usable now, or usable after this plan is applied."""
+
+    allowed_actions = {"ready"}
+    if include_pending_application:
+        allowed_actions.add("apply_completed")
+    return tuple(
+        plan
+        for plan in plans
+        if plan.state is RescueRequestStatus.MASK_READY
+        and plan.action in allowed_actions
+    )
+
+
 def summarize_masking_plans(plans: Iterable[MaskingPlan]) -> str:
     rows = tuple(plans)
     if not rows:
@@ -175,6 +193,10 @@ def summarize_masking_plans(plans: Iterable[MaskingPlan]) -> str:
             f"  {plan.subject_id}: {plan.source_run} -> {plan.output_dir} "
             f"[{plan.state.value}; {plan.action}]"
         )
+        if plan.action == "apply_completed":
+            lines.append(f"    will write: {plan.native_mask}")
+            lines.append(f"    will write: {plan.masked_fixed_image}")
+            lines.append("    rescue: eligible after applying this mask plan")
     return "\n".join(lines)
 
 

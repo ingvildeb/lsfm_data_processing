@@ -10,6 +10,10 @@ from .distribution import (
     apply_registration_distribution_plan,
     build_registration_distribution_plan,
 )
+from .mask_replacement import (
+    apply_revised_mask_replacement_plan,
+    build_revised_mask_replacement_plan,
+)
 from .masking import apply_masking_plans, build_masking_plans
 from .native_preparation import (
     apply_native_preparation_plan,
@@ -27,11 +31,13 @@ __all__ = [
     "apply_batch_membership_plan",
     "apply_evaluation_workbook_plan",
     "apply_masking_plans",
+    "apply_revised_mask_replacement_plan",
     "apply_native_preparation_plan",
     "apply_registration_distribution_plan",
     "apply_rescue_generation_plan",
     "build_evaluation_workbook_plan",
     "build_masking_plans",
+    "build_revised_mask_replacement_plan",
     "build_native_preparation_plan",
     "build_registration_distribution_plan",
     "discover_registration_run_inventory",

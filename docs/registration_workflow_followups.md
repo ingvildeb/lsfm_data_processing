@@ -9,6 +9,9 @@ registration batches have completed.
 
 ### Support source-derived automatic rescues
 
+Implementation status: implemented on the development branch; awaiting
+cross-project candidate validation.
+
 Automatic rescue strategies currently record an optional source run for
 provenance, but generate their parameter preset from the project baseline.
 Only masking and high-memory retries currently reproduce source-run
@@ -48,6 +51,9 @@ parameter snapshot from `padding_rescue/wr20um_pad500um`; the output should
 remain source-derived and distinct while the mask input is reused unchanged.
 
 ### Support intentional replacement of a mask rescue in place
+
+Implementation status: implemented on the development branch; awaiting
+adapter wiring and cross-project candidate validation.
 
 When post-registration review shows that a completed mask was not optimal,
 the practical workflow is often to replace that mask rescue rather than retain
@@ -137,6 +143,11 @@ requests whose expected runs are complete or failed. Helper generation must be
 deterministic and resumable when only a subset of expanded jobs has finished.
 
 ### Make masking dry-runs describe both preparation stages
+
+Implementation status: the shared mask plan now reports its derived outputs
+and exposes completed-mask plans that become rescue-ready after application.
+Project adapters must use that staged readiness when building their plan-only
+rescue artifact plan; this remains to be verified during project migration.
 
 Mask-assisted rescue preparation has two local stages: applying a completed
 review mask, then generating the registration rescue that consumes the masked
