@@ -21,12 +21,14 @@ from lsfm_data_processing.registration_and_transforms.project_workflow.models im
 from lsfm_data_processing.registration_and_transforms.project_workflow.rescue_catalog import (
     ExpandedRescueJob,
     canonical_rescue_strategies,
+    expected_rescue_run_paths,
     expand_rescue_request_plan,
 )
 from lsfm_data_processing.registration_and_transforms.project_workflow.rescue_generation import (
     RescueGenerationRequest,
     apply_rescue_generation_plan,
     plan_rescue_generation,
+    source_derived_generation_request,
 )
 def _base_preset() -> dict[str, object]:
     return {
@@ -76,7 +78,10 @@ def _resolved(*requests: RescueRequest):
         strategies=canonical_rescue_strategies(),
         decisions=decisions,
         known_runs={
-            request.subject_id: {"registration_runs/baseline"}
+            request.subject_id: {
+                "registration_runs/baseline",
+                *({request.source_run} if request.source_run else set()),
+            }
             for request in requests
         },
     )
@@ -115,6 +120,186 @@ def test_high_memory_retry_keeps_source_identity_and_changes_resources_only() ->
     assert jobs[0].variant == "from_baseline_mem256gb"
     assert jobs[0].override_mapping == {}
     assert jobs[0].hpc_mem_gb == 256
+
+
+def test_automatic_source_run_has_distinct_variant_and_expected_path() -> None:
+    request = RescueRequest(
+        "A",
+        "higher gradient step",
+        source_run="registration_runs/custom_rescue/pad1000um",
+    )
+    plan = _resolved(request)
+
+    jobs = expand_rescue_request_plan(plan)
+
+    assert {job.variant for job in jobs} == {
+        "from_custom_rescue_pad1000um_gs0p06",
+        "from_custom_rescue_pad1000um_gs0p07",
+        "from_custom_rescue_pad1000um_gs0p08",
+    }
+    strategy = next(
+        item
+        for item in canonical_rescue_strategies()
+        if item.strategy_id == "higher_gradient_step"
+    )
+    assert expected_rescue_run_paths(request, strategy) == tuple(
+        "registration_runs/higher_gradient_step_rescue/"
+        f"from_custom_rescue_pad1000um_{variant}"
+        for variant in ("gs0p06", "gs0p07", "gs0p08")
+    )
+
+
+def _write_source_run(subject_dir: Path) -> None:
+    run_dir = subject_dir / "registration_runs" / "custom_rescue" / "pad1000um"
+    run_dir.mkdir(parents=True)
+    (run_dir / "registration_parameters.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "name": "source_pad1000um",
+                "preprocessing": {"fixed_padding_um": 1000},
+                "registration": {
+                    "working_resolution_um": 30,
+                    "syn_gradient_step": 0.04,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    space = {
+        "space_name": "test",
+        "orientation": "las",
+        "axis_labels": ["x", "y", "z"],
+        "units": "voxel",
+        "resolution_um": [20.0, 20.0, 20.0],
+        "shape": [10, 10, 10],
+    }
+    manifest = {
+        "schema_version": 1,
+        "success": True,
+        "preset_name": "source_pad1000um",
+        "parameters_snapshot": "registration_parameters.yaml",
+        "orientation_alignment": "none",
+        "fixed_image": {
+            "image_id": "template",
+            "image": "/templates/template.nii.gz",
+            "space": space,
+            "segmentations": {},
+        },
+        "moving_image": {
+            "image_id": "A",
+            "image": "/subjects/A/ch1_native20um_masked.nii.gz",
+            "space": space,
+            "segmentations": {},
+        },
+        "effective_fixed_space": space,
+        "effective_moving_space": space,
+        "forward_transforms": [],
+        "inverse_transforms": [],
+        "transformed_segmentations": {},
+    }
+    (run_dir / "registration_result.json").write_text(
+        json.dumps(manifest), encoding="utf-8"
+    )
+
+
+def test_source_derived_request_inherits_parameters_and_subject_image(
+    tmp_path: Path,
+) -> None:
+    subject_dir = tmp_path / "subjects" / "A"
+    _write_source_run(subject_dir)
+    job = ExpandedRescueJob(
+        subject_id="A",
+        strategy_id="higher_gradient_step",
+        output_group="higher_gradient_step_rescue",
+        variant="from_custom_rescue_pad1000um_gs0p06",
+        overrides=(("syn_gradient_step", 0.06),),
+        rationale="explicit higher-step sweep",
+        source_run="registration_runs/custom_rescue/pad1000um",
+    )
+
+    request = source_derived_generation_request(
+        job=job,
+        registration_spec=_registration_spec("A"),
+        baseline_preset=_base_preset(),
+        subject_dir=subject_dir,
+    )
+
+    assert request.content_addressed_preset is True
+    assert request.base_preset["registration"] == {
+        "working_resolution_um": 30,
+        "syn_gradient_step": 0.04,
+    }
+    subject_image = next(
+        image for image in request.registration_spec.images if image.image_id == "A"
+    )
+    assert str(subject_image.path) == "/subjects/A/ch1_native20um_masked.nii.gz"
+
+    plan = plan_rescue_generation(
+        batch_id="batch001",
+        evaluation_workbook=tmp_path / "evaluation.xlsx",
+        configs_dir=tmp_path / "configs",
+        helper_path=tmp_path / "submit_rescues_hpc.sh",
+        requests=(request,),
+        job_name_prefix="test_rescue",
+    )
+    preset = next(
+        item for item in plan.files if item.purpose == "generated registration preset"
+    )
+    generated = yaml.safe_load(preset.content)
+    assert generated["preprocessing"]["fixed_padding_um"] == 1000
+    assert generated["registration"]["working_resolution_um"] == 30
+    assert generated["registration"]["syn_gradient_step"] == 0.06
+
+
+def test_source_parameters_can_use_an_explicit_accepted_mask_image(
+    tmp_path: Path,
+) -> None:
+    subject_dir = tmp_path / "subjects" / "A"
+    _write_source_run(subject_dir)
+    job = ExpandedRescueJob(
+        subject_id="A",
+        strategy_id="resolution_sweep",
+        output_group="resolution_rescue",
+        variant="from_custom_rescue_pad1000um_wr40um",
+        overrides=(("working_resolution_um", 40),),
+        rationale="reuse accepted mask with alternate parameter source",
+        source_run="registration_runs/custom_rescue/pad1000um",
+    )
+
+    request = source_derived_generation_request(
+        job=job,
+        registration_spec=_registration_spec("A"),
+        baseline_preset=_base_preset(),
+        subject_dir=subject_dir,
+        subject_image_override="/subjects/A/ch1_native20um_masked.nii.gz",
+    )
+
+    subject_image = next(
+        image for image in request.registration_spec.images if image.image_id == "A"
+    )
+    assert str(subject_image.path) == "/subjects/A/ch1_native20um_masked.nii.gz"
+    assert request.base_preset["preprocessing"]["fixed_padding_um"] == 1000
+    assert request.base_preset["registration"]["syn_gradient_step"] == 0.04
+
+
+def test_subject_image_override_requires_a_parameter_source(tmp_path: Path) -> None:
+    job = ExpandedRescueJob(
+        subject_id="A",
+        strategy_id="resolution_sweep",
+        output_group="resolution_rescue",
+        variant="wr40um",
+        overrides=(("working_resolution_um", 40),),
+        rationale="baseline-derived sweep",
+    )
+
+    with pytest.raises(ValueError, match="requires an explicit source run"):
+        source_derived_generation_request(
+            job=job,
+            registration_spec=_registration_spec("A"),
+            baseline_preset=_base_preset(),
+            subject_dir=tmp_path / "subjects" / "A",
+            subject_image_override="/subjects/A/ch1_native20um_masked.nii.gz",
+        )
 
 
 def test_custom_rescue_expands_to_one_subject_job() -> None:

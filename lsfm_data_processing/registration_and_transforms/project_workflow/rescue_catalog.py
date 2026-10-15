@@ -81,31 +81,51 @@ CANONICAL_RESCUE_DEFINITIONS: tuple[RescueDefinition, ...] = (
         (_variant("pad500um", padding_um=500),),
     ),
     RescueDefinition(
-        RescueStrategy("lower_gradient_step", "lower gradient step"),
+        RescueStrategy(
+            "lower_gradient_step",
+            "gradient sweep 0.01/0.02/0.025",
+            aliases=("lower gradient step",),
+        ),
         "lower_gradient_step_rescue",
         "Sweep conservative SyN gradient steps below the 0.05 baseline.",
         tuple(_variant(f"gs{str(value).replace('.', 'p')}", gradient_step=value) for value in (0.01, 0.02, 0.025)),
     ),
     RescueDefinition(
-        RescueStrategy("padding_lower_gradient_step", "padding + lower gradient step"),
+        RescueStrategy(
+            "padding_lower_gradient_step",
+            "padding + gradient sweep 0.01/0.02/0.025",
+            aliases=("padding + lower gradient step",),
+        ),
         "padded_lower_gradient_step_rescue",
         "Combine 500 um padding with the lower-gradient-step sweep.",
         tuple(_variant(f"gs{str(value).replace('.', 'p')}_pad500um", gradient_step=value, padding_um=500) for value in (0.01, 0.02, 0.025)),
     ),
     RescueDefinition(
-        RescueStrategy("higher_gradient_step", "higher gradient step"),
+        RescueStrategy(
+            "higher_gradient_step",
+            "gradient sweep 0.06/0.07/0.08",
+            aliases=("higher gradient step",),
+        ),
         "higher_gradient_step_rescue",
         "Try SyN gradient steps above the 0.05 baseline.",
         tuple(_variant(f"gs{str(value).replace('.', 'p')}", gradient_step=value) for value in (0.06, 0.07, 0.08)),
     ),
     RescueDefinition(
-        RescueStrategy("padding_higher_gradient_step", "higher gradient step + padding"),
+        RescueStrategy(
+            "padding_higher_gradient_step",
+            "padding + gradient sweep 0.06/0.07/0.08",
+            aliases=("higher gradient step + padding",),
+        ),
         "padded_higher_gradient_step_rescue",
         "Combine 500 um padding with higher SyN gradient steps.",
         tuple(_variant(f"gs{str(value).replace('.', 'p')}_pad500um", gradient_step=value, padding_um=500) for value in (0.06, 0.07, 0.08)),
     ),
     RescueDefinition(
-        RescueStrategy("bidirectional_gradient_step", "bidirectional gradient step"),
+        RescueStrategy(
+            "bidirectional_gradient_step",
+            "gradient sweep 0.01/0.025/0.06",
+            aliases=("bidirectional gradient step",),
+        ),
         "bidirectional_gradient_step_rescue",
         "Compare lower and higher SyN gradient steps around the baseline.",
         tuple(_variant(f"gs{str(value).replace('.', 'p')}", gradient_step=value) for value in (0.01, 0.025, 0.06)),
@@ -193,11 +213,10 @@ def expected_rescue_run_paths(
     if strategy.kind is RescueStrategyKind.CUSTOM:
         variants = (request.effective_variant_name,)
     else:
+        variants = tuple(variant.name for variant in definition.variants)
+    if request.source_run:
         variants = tuple(
-            _source_variant_name(request.source_run, variant.name)
-            if strategy.kind is RescueStrategyKind.EXACT_RETRY
-            else variant.name
-            for variant in definition.variants
+            _source_variant_name(request.source_run, variant) for variant in variants
         )
     return tuple(
         f"registration_runs/{definition.output_group}/{variant}"
@@ -219,12 +238,17 @@ def expand_rescue_request_plan(plan: RescueRequestPlan) -> tuple[ExpandedRescueJ
         if item.strategy.kind is RescueStrategyKind.MASKING:
             continue
         if item.strategy.kind is RescueStrategyKind.CUSTOM:
+            variant_name = request.effective_variant_name
+            if request.source_run:
+                variant_name = _source_variant_name(
+                    request.source_run, variant_name
+                )
             jobs.append(
                 ExpandedRescueJob(
                     subject_id=request.subject_id,
                     strategy_id="custom",
                     output_group=definition.output_group,
-                    variant=request.effective_variant_name,
+                    variant=variant_name,
                     overrides=tuple(
                         (parameter, value)
                         for parameter, value in (
@@ -241,7 +265,7 @@ def expand_rescue_request_plan(plan: RescueRequestPlan) -> tuple[ExpandedRescueJ
             continue
         for variant in definition.variants:
             variant_name = variant.name
-            if item.strategy.kind is RescueStrategyKind.EXACT_RETRY:
+            if request.source_run:
                 variant_name = _source_variant_name(request.source_run, variant.name)
             jobs.append(
                 ExpandedRescueJob(

@@ -18,6 +18,7 @@ from .generation import (
     render_hpc_submission_helper,
     render_registration_batch_config,
 )
+from .models import normalize_run_path
 from .rescue_catalog import ExpandedRescueJob
 
 
@@ -36,6 +37,15 @@ class RescueGenerationRequest:
     registration_spec: RegistrationBatchSpec
     base_preset: Mapping[str, Any]
     content_addressed_preset: bool = False
+
+
+@dataclass(frozen=True)
+class RescueSourceContext:
+    """Parameters and subject-image input inherited from one registration run."""
+
+    source_run: str
+    parameter_snapshot: Mapping[str, Any]
+    subject_image: str
 
 
 @dataclass(frozen=True)
@@ -92,6 +102,119 @@ def load_registration_parameter_snapshot(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"Invalid registration parameter snapshot: {path}")
     return data
+
+
+def load_rescue_source_context(
+    *,
+    subject_id: str,
+    subject_dir: Path,
+    source_run: str,
+) -> RescueSourceContext:
+    """Load the complete reusable execution context of a prior run."""
+
+    normalized_run = normalize_run_path(source_run)
+    parts = Path(normalized_run).parts
+    if (
+        not parts
+        or parts[0] != "registration_runs"
+        or ".." in parts
+    ):
+        raise ValueError(
+            "Source run must be a subject-relative path under registration_runs/: "
+            f"{source_run!r}"
+        )
+    run_dir = Path(subject_dir) / Path(normalized_run)
+    if not run_dir.is_dir():
+        raise FileNotFoundError(f"Source registration run is missing: {run_dir}")
+
+    try:
+        from atlasspace.registration import load_registration_result_manifest
+    except ImportError as exc:
+        raise RuntimeError(
+            "atlasspace is required to resolve registration source runs. "
+            "Install lsfm-data-processing with the registration extra."
+        ) from exc
+    manifest = load_registration_result_manifest(run_dir)
+    images = (manifest.fixed_image, manifest.moving_image)
+    matches = [image for image in images if image.image_id == subject_id]
+    if len(matches) != 1:
+        raise ValueError(
+            f"Source run must identify subject {subject_id!r} exactly once; "
+            f"found {len(matches)} matching manifest images in {run_dir}."
+        )
+    snapshot_value = manifest.parameters_snapshot
+    if not snapshot_value:
+        raise ValueError(
+            f"Source registration manifest has no parameter snapshot: {run_dir}"
+        )
+    snapshot_path = Path(snapshot_value)
+    if not snapshot_path.is_absolute():
+        snapshot_path = run_dir / snapshot_path
+    parameters = load_registration_parameter_snapshot(snapshot_path)
+    return RescueSourceContext(
+        source_run=normalized_run,
+        parameter_snapshot=parameters,
+        subject_image=matches[0].image,
+    )
+
+
+def source_derived_generation_request(
+    *,
+    job: ExpandedRescueJob,
+    registration_spec: RegistrationBatchSpec,
+    baseline_preset: Mapping[str, Any],
+    subject_dir: Path,
+    subject_image_override: str | PurePosixPath | None = None,
+    content_addressed_preset: bool = False,
+) -> RescueGenerationRequest:
+    """Build a request, inheriting full context when ``job.source_run`` is set.
+
+    ``subject_image_override`` explicitly supports reusing an accepted masked
+    image while parameters come from a different source run. It is never
+    inferred from other runs or subject history.
+    """
+
+    if not job.source_run:
+        if subject_image_override is not None:
+            raise ValueError(
+                "subject_image_override requires an explicit source run"
+            )
+        return RescueGenerationRequest(
+            job=job,
+            registration_spec=registration_spec,
+            base_preset=baseline_preset,
+            content_addressed_preset=content_addressed_preset,
+        )
+    context = load_rescue_source_context(
+        subject_id=job.subject_id,
+        subject_dir=subject_dir,
+        source_run=job.source_run,
+    )
+    matching = [
+        image for image in registration_spec.images if image.image_id == job.subject_id
+    ]
+    if len(matching) != 1:
+        raise ValueError(
+            "Registration spec must contain exactly one image for "
+            f"{job.subject_id}; found {len(matching)}."
+        )
+    inherited_image = (
+        context.subject_image
+        if subject_image_override is None
+        else subject_image_override
+    )
+    inherited_images = tuple(
+        replace(image, path=inherited_image)
+        if image.image_id == job.subject_id
+        else image
+        for image in registration_spec.images
+    )
+    return RescueGenerationRequest(
+        job=job,
+        registration_spec=replace(registration_spec, images=inherited_images),
+        base_preset=context.parameter_snapshot,
+        content_addressed_preset=True,
+    )
 
 
 def _slug(value: object, *, field: str) -> str:
