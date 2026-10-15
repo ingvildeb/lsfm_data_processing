@@ -394,6 +394,9 @@ def test_hpc_helper_carries_per_job_memory_without_hardcoded_project_root() -> N
     assert '"ordinary.toml|"' in text
     assert '"high_memory.toml|256"' in text
     assert "runtime_contract" in text
+    assert "runtime_contract >/dev/null" in text
+    assert "Registration dry run: batch001" in text
+    assert "[dry-run] sbatch" not in text
     assert "shared_registration/code" not in text
 
 
@@ -684,7 +687,7 @@ def test_generated_manifest_reconstructs_only_unfinished_helper_jobs(
     ).content.decode("utf-8")
     assert "higher_gradient_step_b_gs0p06.toml" in helper
     assert "higher_gradient_step_a_gs0p06.toml" not in helper
-    assert "verify_rescue_input" in helper
+    assert "LSFM_GROUPED_SUBMISSION=1" in helper
     assert RESCUE_GENERATION_MANIFEST_FILENAME in helper
 
 
@@ -756,6 +759,7 @@ def test_hpc_input_verification_reports_match_and_rejects_stale_copy(
         "jobs": {
             config.name: {
                 "subject_id": "A",
+                "config_sha256": sha256(config.read_bytes()).hexdigest(),
                 "subject_input": {
                     "hpc_path": str(hpc_input),
                     "size_bytes": hpc_input.stat().st_size,
@@ -776,6 +780,11 @@ def test_hpc_input_verification_reports_match_and_rejects_stale_copy(
     baseline = config.parent / "baseline.toml"
     baseline.write_text("# baseline\n", encoding="utf-8")
     assert verify_rescue_input_for_config(baseline) is None
+
+    config.write_text("# stale config\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="Transfer the updated configuration"):
+        verify_rescue_input_for_config(config)
+    config.write_text("# test config\n", encoding="utf-8")
 
     hpc_input.write_bytes(b"stale masked input")
     with pytest.raises(RuntimeError, match="Transfer the updated file"):

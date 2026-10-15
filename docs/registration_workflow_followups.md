@@ -160,14 +160,13 @@ artifacts that become valid once those planned mask outputs exist.
 
 ### Simplify HPC dry-run output
 
-The HPC submission dry-run currently prints long shell commands containing
-full paths and implementation details. This is difficult to review manually.
+Implementation status: implemented on the development branch; awaiting
+candidate validation on HPC.
 
-Proposed direction: print a compact human-readable summary per submission,
-including batch, subject, strategy/config name, resources, exclusion settings,
-and the output/log locations. Optionally provide a separate `--verbose` mode
-for the exact `sbatch` command when debugging is needed.
-
-The compact output must still make it possible to confirm the number of jobs,
-their subjects, resource requests, and excluded nodes without reading the
-generated shell command.
+The candidate workflow prints one concise line per subject. It reports whether
+required inputs were found, the subject input filename, rescue-input SHA-256
+verification when applicable, template identity, working resolution, SyN
+gradient step, fixed padding, and requested memory. Missing inputs are reported
+as errors before any job is submitted, existing outputs are visibly skipped,
+and successful submissions receive a short confirmation. Runtime details,
+full paths for successful inputs, and raw `sbatch` commands are suppressed.

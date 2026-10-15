@@ -1,15 +1,24 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
-import shlex
 import subprocess
+import sys
 
 from lsfm_data_processing.registration_and_transforms._batch_register_core import (
+    BatchJobSpec,
     get_batch_job_specs,
     load_batch_register_settings_from_path,
 )
+from lsfm_data_processing.registration_and_transforms.batch_registration.hpc.submission_summary import (
+    format_missing_job,
+    format_ready_job,
+    missing_registration_inputs,
+)
+from lsfm_data_processing.registration_and_transforms.batch_registration.hpc.verify_rescue_input import (
+    verify_rescue_input_for_config,
+)
 from lsfm_data_processing.registration_and_transforms.runtime_contract import (
-    format_registration_runtime,
     validate_registration_runtime,
 )
 from lsfm_data_processing.utils.io_helpers import (
@@ -108,7 +117,7 @@ registration_config = _resolve_project_path(
 )
 registration_config = require_file(registration_config, "Registration config")
 registration_settings = load_batch_register_settings_from_path(registration_config)
-registration_runtime = validate_registration_runtime(
+validate_registration_runtime(
     require_installed_packages=True,
 )
 
@@ -136,27 +145,59 @@ sbatch_script = require_file(
     "HPC batch sbatch wrapper",
 )
 
-submitted_jobs: list[str] = []
-skipped_jobs: list[str] = []
+grouped_submission = os.environ.get("LSFM_GROUPED_SUBMISSION") == "1"
+if not grouped_submission:
+    mode_label = "dry run" if dry_run else "submission"
+    excluded = ",".join(excluded_nodes) if excluded_nodes else "none"
+    print(f"Registration {mode_label}: {project_dir.name}")
+    print(
+        f"Jobs: {len(job_specs)} | Resources: {cpus_per_task} CPUs, "
+        f"{mem_gb} GB, {time_limit} | Excluded nodes: {excluded}"
+    )
+    print()
 
-print(f"Using HPC config: {hpc_config}")
-print("Registration runtime preflight:")
-print(format_registration_runtime(registration_runtime))
-print(f"Using registration config: {registration_config}")
-print(
-    "Using registration presets: "
-    + ", ".join(dict.fromkeys(job_spec.preset_name for job_spec in job_specs))
-)
-print(f"Project directory: {project_dir}")
-print(f"Example output directory: {job_specs[0].output_dir}")
-print(f"Log directory: {log_dir}")
-print()
+try:
+    input_verification = verify_rescue_input_for_config(registration_config)
+except (FileNotFoundError, RuntimeError, ValueError) as exc:
+    print(f"[error] {exc}", file=sys.stderr)
+    raise SystemExit(1) from exc
+if input_verification is not None:
+    verified_subject = input_verification.split(" input:", maxsplit=1)[0]
+    configured_subjects = {job_spec.moving_image_id for job_spec in job_specs}
+    if verified_subject not in configured_subjects:
+        print(
+            "[error] Rescue provenance subject does not match the registration "
+            f"configuration: {verified_subject}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
 
-for job_spec in job_specs:
+ready_jobs: list[tuple[BatchJobSpec, list[str]]] = []
+skipped_count = 0
+blocked_count = 0
+for job_spec, job in zip(job_specs, registration_settings.jobs, strict=True):
     if skip_if_output_exists and _registration_output_exists(job_spec.output_dir):
-        print(f"Skipping {job_spec.label}: output already exists.")
-        skipped_jobs.append(job_spec.label)
+        print(f"[skip] {job_spec.moving_image_id}: output already exists")
+        skipped_count += 1
         continue
+
+    missing = missing_registration_inputs(job)
+    if missing:
+        print(format_missing_job(job, missing), file=sys.stderr)
+        blocked_count += 1
+        continue
+
+    hash_verified = (
+        input_verification is not None
+        and verified_subject == job_spec.moving_image_id
+    )
+    print(
+        format_ready_job(
+            job,
+            input_sha256_verified=hash_verified,
+            mem_gb=mem_gb,
+        )
+    )
 
     command = _build_sbatch_command(
         sbatch_script=sbatch_script,
@@ -178,27 +219,39 @@ for job_spec in job_specs:
         log_dir=log_dir,
         job_name_prefix=job_name_prefix,
     )
+    ready_jobs.append((job_spec, command))
 
+if blocked_count:
+    if not grouped_submission:
+        print()
+        print(
+            f"Dry run failed: {len(ready_jobs)} ready, {blocked_count} blocked, "
+            f"{skipped_count} skipped. Nothing was submitted."
+        )
+    raise SystemExit(1)
+
+submitted_count = 0
+if not dry_run:
+    for job_spec, command in ready_jobs:
+        completed = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        response = completed.stdout.strip()
+        print(f"[submitted] {job_spec.moving_image_id}: {response}")
+        submitted_count += 1
+
+if not grouped_submission:
+    print()
     if dry_run:
-        print(f"[dry-run] {shlex.join(command)}")
-        continue
-
-    completed = subprocess.run(
-        command,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    print(f"Submitted {job_spec.label}: {completed.stdout.strip()}")
-    submitted_jobs.append(job_spec.label)
-
-print()
-print(f"Submission finished. Submitted: {len(submitted_jobs)}")
-if submitted_jobs:
-    for label in submitted_jobs:
-        print(f"  - {label}")
-
-print(f"Skipped: {len(skipped_jobs)}")
-if skipped_jobs:
-    for label in skipped_jobs:
-        print(f"  - {label}")
+        print(
+            f"Dry run passed: {len(ready_jobs)} ready, {skipped_count} skipped. "
+            "Nothing was submitted."
+        )
+    else:
+        print(
+            f"Submission complete: {submitted_count} submitted, "
+            f"{skipped_count} skipped."
+        )

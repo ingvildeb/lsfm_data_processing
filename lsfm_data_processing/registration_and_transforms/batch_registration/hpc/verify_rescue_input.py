@@ -85,6 +85,17 @@ def verify_rescue_input_for_config(
         raise ValueError(f"Invalid rescue generation manifest: {manifest_path}")
     if config_path.name not in jobs:
         return None
+    job = jobs[config_path.name]
+    expected_config_sha256 = job.get("config_sha256") if isinstance(job, dict) else None
+    if not isinstance(expected_config_sha256, str) or len(expected_config_sha256) != 64:
+        raise ValueError(
+            f"Invalid rescue configuration SHA256: {config_path.name}"
+        )
+    if file_sha256(config_path) != expected_config_sha256:
+        raise RuntimeError(
+            f"Rescue configuration differs from local provenance: {config_path}. "
+            "Transfer the updated configuration before submission."
+        )
     return verify_rescue_input(manifest_path, config_path.name)
 
 

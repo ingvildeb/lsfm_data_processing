@@ -203,16 +203,9 @@ def render_hpc_submission_helper(
         f'  "{entry.config_filename}|{entry.mem_gb or ""}"' for entry in entries
     )
     manifest_setup = ""
-    manifest_preflight = ""
     if input_manifest is not None:
         manifest_setup = f'''INPUT_MANIFEST="$BATCH_ROOT/{input_manifest}"
 [[ -f "$INPUT_MANIFEST" ]] || {{ echo "Missing rescue manifest: $INPUT_MANIFEST" >&2; exit 1; }}
-'''
-        manifest_preflight = '''
-for specification in "${CONFIG_SPECS[@]}"; do
-  IFS='|' read -r config _ <<< "$specification"
-  python -m lsfm_data_processing.registration_and_transforms.batch_registration.hpc.verify_rescue_input "$INPUT_MANIFEST" "$config"
-done
 '''
     return f'''#!/usr/bin/env bash
 set -euo pipefail
@@ -236,8 +229,7 @@ for specification in "${{CONFIG_SPECS[@]}}"; do
   [[ -f "$BATCH_ROOT/configs/$config" ]] || {{ echo "Missing registration config: $config" >&2; exit 1; }}
 done
 
-python -m lsfm_data_processing.registration_and_transforms.runtime_contract
-{manifest_preflight}
+python -m lsfm_data_processing.registration_and_transforms.runtime_contract >/dev/null
 
 BACKUP="$(mktemp)"
 cp "$HPC_CONFIG" "$BACKUP"
@@ -250,17 +242,26 @@ sed -i "s/^dry_run = .*/dry_run = $DRY_RUN_VALUE/" "$HPC_CONFIG"
 sed -i 's/^job_name_prefix = .*/job_name_prefix = "{job_name_prefix}"/' "$HPC_CONFIG"
 sed -i 's|^log_dir = .*|log_dir = "{log_dir}"|' "$HPC_CONFIG"
 
+echo
+if [[ "$MODE" == "dry-run" ]]; then
+  echo "Registration dry run: {batch_id}"
+else
+  echo "Registration submission: {batch_id}"
+fi
+
 for specification in "${{CONFIG_SPECS[@]}}"; do
   IFS='|' read -r config requested_mem_gb <<< "$specification"
   active_mem_gb="${{requested_mem_gb:-$DEFAULT_MEM_GB}}"
   sed -i "s|^registration_config = .*|registration_config = \\"configs/$config\\"|" "$HPC_CONFIG"
   sed -i "s/^mem_gb = .*/mem_gb = $active_mem_gb/" "$HPC_CONFIG"
-  echo
-  echo "[{batch_id}] $config (${{active_mem_gb}}G)"
   report="$BATCH_ROOT/${{config%.toml}}_${{MODE}}.txt"
-  (cd "$BATCH_ROOT" && python -m lsfm_data_processing.registration_and_transforms.batch_registration.hpc.submit_batch_register) | tee "$report"
+  (cd "$BATCH_ROOT" && LSFM_GROUPED_SUBMISSION=1 python -m lsfm_data_processing.registration_and_transforms.batch_registration.hpc.submit_batch_register) | tee "$report"
 done
 
 echo
-echo "Processed ${{#CONFIG_SPECS[@]}} registration configurations in $MODE mode."
+if [[ "$MODE" == "dry-run" ]]; then
+  echo "Dry run passed. Nothing was submitted."
+else
+  echo "Submission pass complete."
+fi
 '''

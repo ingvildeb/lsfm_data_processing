@@ -231,6 +231,10 @@ and failed result manifests are terminal and omitted.
 Before submission and again at job startup, rescue inputs are checked against
 their recorded byte size and SHA-256 digest. A missing or stale HPC input is a
 hard error with an instruction to transfer the locally generated input.
+Normal dry-run output presents one readiness line per subject with the input,
+template, effective working resolution, SyN gradient step, fixed padding, and
+memory request. Raw scheduler commands and repeated runtime/path diagnostics
+are not part of the user-facing summary.
 
 ### Registration Outputs
 
