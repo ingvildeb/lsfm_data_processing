@@ -5,10 +5,14 @@ from pathlib import Path
 
 import pytest
 
+from lsfm_data_processing.registration_and_transforms.project_workflow import distribution
 from lsfm_data_processing.registration_and_transforms.project_workflow.distribution import (
     IN_PROGRESS_METADATA_FILENAME,
+    PARTIAL_COPY_SUFFIX,
+    RegistrationCopyOperation,
     apply_registration_distribution_plan,
     build_registration_distribution_plan,
+    copy_and_verify,
 )
 from lsfm_data_processing.registration_and_transforms.project_workflow.decisions import (
     resolve_final_decisions,
@@ -161,7 +165,181 @@ def test_failed_finalizer_leaves_subject_resumable(tmp_path: Path) -> None:
     assert (subjects / "A_transferred").is_dir()
 
 
-def test_differing_partial_destination_is_a_conflict(tmp_path: Path) -> None:
+def test_interrupted_copy_uses_temporary_file_and_resumes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    subjects = tmp_path / "subjects"
+    source = subjects / "A"
+    _run(
+        source,
+        "registration_runs/baseline",
+        success=True,
+        payload=b"selected-output",
+    )
+    session = tmp_path / "session"
+    session.mkdir()
+    destination = session / "_analysis"
+    decision = _decision("A", "registration_runs/baseline")
+    first = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+    interrupted = first.operations[0]
+    original_copy = distribution.shutil.copyfileobj
+
+    def fail_mid_copy(source_handle, destination_handle) -> None:
+        destination_handle.write(source_handle.read(3))
+        raise OSError("simulated network interruption")
+
+    monkeypatch.setattr(distribution.shutil, "copyfileobj", fail_mid_copy)
+    with pytest.raises(OSError, match="network interruption"):
+        apply_registration_distribution_plan(
+            first, confirmation=first.required_confirmation
+        )
+
+    partial = interrupted.destination.with_name(
+        f".{interrupted.destination.name}{PARTIAL_COPY_SUFFIX}"
+    )
+    assert partial.is_file()
+    assert not interrupted.destination.exists()
+    assert (
+        destination / "registration" / IN_PROGRESS_METADATA_FILENAME
+    ).is_file()
+    assert source.is_dir()
+
+    monkeypatch.setattr(distribution.shutil, "copyfileobj", original_copy)
+    resumed = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+    apply_registration_distribution_plan(
+        resumed, confirmation=resumed.required_confirmation
+    )
+
+    assert not partial.exists()
+    assert interrupted.destination.is_file()
+    assert not (
+        destination / "registration" / IN_PROGRESS_METADATA_FILENAME
+    ).exists()
+    assert (subjects / "A_transferred").is_dir()
+
+
+def test_excluded_subject_progress_marker_is_resumable(tmp_path: Path) -> None:
+    subjects = tmp_path / "subjects"
+    source = subjects / "A"
+    _run(
+        source,
+        "registration_runs/baseline",
+        success=False,
+        payload=b"failed-but-archived",
+    )
+    session = tmp_path / "session"
+    session.mkdir()
+    destination = session / "_analysis"
+    decision = _decision(
+        "A", "registration_runs/baseline", excluded=True
+    )
+    first = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+
+    def fail_after_copy(_subject) -> None:
+        raise RuntimeError("postprocessing failed")
+
+    with pytest.raises(RuntimeError, match="postprocessing failed"):
+        apply_registration_distribution_plan(
+            first,
+            confirmation=first.required_confirmation,
+            finalize_subject=fail_after_copy,
+        )
+
+    progress = destination / "registration_runs" / IN_PROGRESS_METADATA_FILENAME
+    assert progress.is_file()
+    assert source.is_dir()
+    resumed = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+    assert all(item.state == "already_present" for item in resumed.operations)
+    apply_registration_distribution_plan(
+        resumed, confirmation=resumed.required_confirmation
+    )
+    assert not progress.exists()
+    assert (subjects / "A_transferred").is_dir()
+
+
+def test_partial_progress_marker_is_not_mistaken_for_legacy_registration(
+    tmp_path: Path,
+) -> None:
+    subjects = tmp_path / "subjects"
+    source = subjects / "A"
+    _run(
+        source,
+        "registration_runs/baseline",
+        success=True,
+        payload=b"selected",
+    )
+    session = tmp_path / "session"
+    session.mkdir()
+    destination = session / "_analysis"
+    decision = _decision("A", "registration_runs/baseline")
+    initial = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+    canonical = destination / "registration"
+    canonical.mkdir(parents=True)
+    progress = canonical / IN_PROGRESS_METADATA_FILENAME
+    partial = progress.with_name(f".{progress.name}{PARTIAL_COPY_SUFFIX}")
+    partial.write_text("{", encoding="utf-8")
+
+    resumed = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+
+    assert resumed.subjects[0].legacy_canonical_archive is None
+    apply_registration_distribution_plan(
+        resumed, confirmation=initial.required_confirmation
+    )
+    assert not partial.exists()
+    assert (subjects / "A_transferred").is_dir()
+
+
+def test_verified_temporary_copy_is_promoted_without_recopying(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.nii.gz"
+    destination = tmp_path / "result" / "output.nii.gz"
+    source.write_bytes(b"complete payload")
+    destination.parent.mkdir()
+    partial = destination.with_name(f".{destination.name}{PARTIAL_COPY_SUFFIX}")
+    partial.write_bytes(source.read_bytes())
+
+    def unexpected_copy(*_args, **_kwargs) -> None:
+        raise AssertionError("verified temporary file should not be recopied")
+
+    monkeypatch.setattr(distribution.shutil, "copyfileobj", unexpected_copy)
+    copy_and_verify(RegistrationCopyOperation(source, destination, "copy"))
+
+    assert destination.read_bytes() == source.read_bytes()
+    assert not partial.exists()
+
+
+def test_differing_final_destination_is_a_conflict(tmp_path: Path) -> None:
     subjects = tmp_path / "subjects"
     source = subjects / "A"
     _run(

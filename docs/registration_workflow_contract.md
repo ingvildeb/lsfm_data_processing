@@ -448,7 +448,9 @@ preflight with a difference report. Additional subjects require a new batch.
 | Existing destination is identical | Skip it as complete. |
 | Existing destination differs | Stop with a conflict. |
 | Workbook synchronization discovers a new run | Append it without changing existing evaluations. |
-| Distribution stops after a partial copy | Rerun verifies copied files and continues. |
+| Distribution stops during a file copy | Leave only a recognized temporary sibling; rerun replaces or promotes it after full verification. |
+| A differing final destination file exists | Stop as a conflict; never infer that a final file is an interrupted copy. |
+| Distribution is interrupted for a selected or excluded subject | Preserve matching in-progress metadata and resume only the unfinished work. |
 | Distribution has not fully verified a subject | Do not append `_transferred`. |
 | Distribution finishes and verifies metadata | Append `_transferred` last. |
 | ANTs job terminates midway | Require an explicit retry/attempt; do not claim continuation. |

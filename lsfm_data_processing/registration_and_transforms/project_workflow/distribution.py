@@ -18,6 +18,7 @@ TRANSFERRED_SUFFIX = "_transferred"
 SELECTION_METADATA_FILENAME = "registration_selection.json"
 EXCLUSION_METADATA_FILENAME = "registration_exclusion.json"
 IN_PROGRESS_METADATA_FILENAME = ".registration_distribution_in_progress.json"
+PARTIAL_COPY_SUFFIX = ".registration_distribution.partial"
 
 
 @dataclass(frozen=True)
@@ -192,8 +193,7 @@ def apply_registration_distribution_plan(
         if finalize_subject is not None:
             finalize_subject(subject)
         _write_new_or_validate_identical(subject.decision_metadata_path, metadata_text)
-        if progress_path is not None:
-            progress_path.unlink()
+        progress_path.unlink()
         transferred = subject.source_subject_dir.with_name(
             f"{subject.source_subject_dir.name}{TRANSFERRED_SUFFIX}"
         )
@@ -240,25 +240,55 @@ def plan_verified_copy(
 
 
 def copy_and_verify(operation: RegistrationCopyOperation) -> None:
+    temporary = _partial_copy_path(operation.destination)
     if operation.state == "already_present":
         if not files_match(operation.source, operation.destination):
             raise FileExistsError(
                 f"Existing destination changed after preflight: {operation.destination}"
             )
+        _remove_partial_copy(temporary)
         return
     if operation.state != "copy":
         raise ValueError(f"Unsupported copy operation state: {operation.state!r}")
     operation.destination.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with operation.source.open("rb") as source_handle:
-            with operation.destination.open("xb") as destination_handle:
-                shutil.copyfileobj(source_handle, destination_handle)
-        shutil.copystat(operation.source, operation.destination)
-    except FileExistsError:
+    if operation.destination.exists():
         if not files_match(operation.source, operation.destination):
-            raise
+            raise FileExistsError(
+                f"Copy destination appeared and differs: {operation.destination}"
+            )
+        _remove_partial_copy(temporary)
+        return
+    if temporary.exists() and not files_match(operation.source, temporary):
+        _remove_partial_copy(temporary)
+    if not temporary.exists():
+        with operation.source.open("rb") as source_handle:
+            with temporary.open("xb") as destination_handle:
+                shutil.copyfileobj(source_handle, destination_handle)
+        shutil.copystat(operation.source, temporary)
+    if not files_match(operation.source, temporary):
+        raise IOError(f"Temporary copy failed verification: {temporary}")
+    if operation.destination.exists():
+        if not files_match(operation.source, operation.destination):
+            raise FileExistsError(
+                f"Copy destination appeared and differs: {operation.destination}"
+            )
+        _remove_partial_copy(temporary)
+        return
+    temporary.replace(operation.destination)
     if not files_match(operation.source, operation.destination):
         raise IOError(f"Copied file failed verification: {operation.destination}")
+
+
+def _partial_copy_path(destination: Path) -> Path:
+    return destination.with_name(f".{destination.name}{PARTIAL_COPY_SUFFIX}")
+
+
+def _remove_partial_copy(path: Path) -> None:
+    if not path.exists():
+        return
+    if not path.is_file():
+        raise FileExistsError(f"Distribution temporary path is not a file: {path}")
+    path.unlink()
 
 
 def _discover_subject_directories(
@@ -346,6 +376,7 @@ def _plan_subject(
         if selected_run is not None
         else archive_root / EXCLUSION_METADATA_FILENAME
     )
+    _validate_progress_destination(metadata_path.parent, metadata)
     _validate_metadata_destination(metadata_path, metadata)
     return SubjectRegistrationDistribution(
         subject_id=subject_id,
@@ -455,15 +486,26 @@ def _plan_legacy_archive(
     metadata: Mapping[str, Any],
 ) -> tuple[Path, Path] | None:
     progress = canonical / IN_PROGRESS_METADATA_FILENAME
+    partial_progress = _partial_copy_path(progress)
     selection = canonical / SELECTION_METADATA_FILENAME
     if progress.is_file() and progress.read_text(encoding="utf-8") != _metadata_text(
         metadata
     ):
         raise FileExistsError(f"Distribution marker differs: {progress}")
+    if partial_progress.exists() and not partial_progress.is_file():
+        raise FileExistsError(
+            f"Distribution temporary marker is not a file: {partial_progress}"
+        )
     if canonical.is_dir() and not selection.is_file() and not progress.is_file():
-        legacy_destination = archive_root / "legacy_pre_batch"
-        if not legacy_destination.exists():
-            return canonical, legacy_destination
+        entries = tuple(canonical.iterdir())
+        only_distribution_temporaries = all(
+            item.is_file() and item.name.endswith(PARTIAL_COPY_SUFFIX)
+            for item in entries
+        )
+        if not only_distribution_temporaries:
+            legacy_destination = archive_root / "legacy_pre_batch"
+            if not legacy_destination.exists():
+                return canonical, legacy_destination
     elif canonical.exists() and not canonical.is_dir():
         raise FileExistsError(
             f"Canonical registration destination is not a directory: {canonical}"
@@ -499,30 +541,64 @@ def _apply_legacy_archive(subject: SubjectRegistrationDistribution) -> None:
     print(f"    archived legacy registration: {destination}")
 
 
+def _validate_progress_destination(
+    destination: Path, metadata: Mapping[str, Any]
+) -> None:
+    progress = destination / IN_PROGRESS_METADATA_FILENAME
+    partial_progress = _partial_copy_path(progress)
+    if progress.exists() and (
+        not progress.is_file()
+        or progress.read_text(encoding="utf-8") != _metadata_text(metadata)
+    ):
+        raise FileExistsError(f"Distribution marker differs: {progress}")
+    if partial_progress.exists() and not partial_progress.is_file():
+        raise FileExistsError(
+            f"Distribution temporary marker is not a file: {partial_progress}"
+        )
+
+
 def _ensure_progress_marker(
     subject: SubjectRegistrationDistribution, metadata_text: str
-) -> Path | None:
-    if subject.selected_destination is None:
-        return None
-    subject.selected_destination.mkdir(parents=True, exist_ok=True)
-    progress = subject.selected_destination / IN_PROGRESS_METADATA_FILENAME
+) -> Path:
+    progress = (
+        subject.decision_metadata_path.parent / IN_PROGRESS_METADATA_FILENAME
+    )
     _write_new_or_validate_identical(progress, metadata_text)
     return progress
 
 
 def _write_new_or_validate_identical(path: Path, content: str) -> None:
+    temporary = _partial_copy_path(path)
     if path.exists():
         if not path.is_file() or path.read_text(encoding="utf-8") != content:
             raise FileExistsError(f"Existing metadata differs: {path}")
+        _remove_partial_copy(temporary)
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("x", encoding="utf-8", newline="\n") as handle:
-        handle.write(content)
+    if temporary.exists():
+        if not temporary.is_file():
+            raise FileExistsError(
+                f"Distribution temporary path is not a file: {temporary}"
+            )
+        if temporary.read_text(encoding="utf-8") != content:
+            temporary.unlink()
+    if not temporary.exists():
+        with temporary.open("x", encoding="utf-8", newline="\n") as handle:
+            handle.write(content)
+    if temporary.read_text(encoding="utf-8") != content:
+        raise IOError(f"Temporary metadata failed verification: {temporary}")
+    if path.exists():
+        if not path.is_file() or path.read_text(encoding="utf-8") != content:
+            raise FileExistsError(f"Existing metadata differs: {path}")
+        temporary.unlink()
+        return
+    temporary.replace(path)
 
 
 __all__ = [
     "EXCLUSION_METADATA_FILENAME",
     "IN_PROGRESS_METADATA_FILENAME",
+    "PARTIAL_COPY_SUFFIX",
     "RegistrationCopyOperation",
     "RegistrationDistributionPlan",
     "SELECTION_METADATA_FILENAME",
