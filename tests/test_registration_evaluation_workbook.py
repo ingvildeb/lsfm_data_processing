@@ -123,6 +123,11 @@ def test_plan_apply_preserves_human_fields_and_auxiliary_sheets(
     assert workbook[WORKFLOW_LISTS_SHEET].sheet_state == "hidden"
     run_headers = [cell.value for cell in workbook[RUN_EVALUATIONS_SHEET][1]]
     assert "Proposed rescue" not in run_headers
+    preset_column = RUN_EVALUATION_COLUMNS.index("Preset name") + 1
+    preset_letter = workbook[RUN_EVALUATIONS_SHEET].cell(
+        1, preset_column
+    ).column_letter
+    assert workbook[RUN_EVALUATIONS_SHEET].column_dimensions[preset_letter].hidden
     assert len(workbook[RESCUE_REQUESTS_SHEET].data_validations.dataValidation) == 3
     workbook.close()
 

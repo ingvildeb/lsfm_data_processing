@@ -219,6 +219,10 @@ provenance includes the local source, HPC path, byte size, and SHA-256 digest.
 Scientifically immutable TOMLs remain unchanged when a revised masked image
 updates only the recorded input digest.
 
+Evaluation workbooks retain the technical preset name as a hidden internal
+column for provenance and downstream readers. Evaluators identify runs by the
+visible, human-readable run path rather than content-addressed preset hashes.
+
 ### Derived Submission Helpers
 
 Submission helpers are generated indexes of pending configurations. They may

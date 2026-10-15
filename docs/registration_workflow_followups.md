@@ -77,6 +77,9 @@ replacement visible in the workflow.
 
 ### Separate human-facing run labels from content-addressed preset IDs
 
+Implementation status: implemented on the development branch; awaiting
+candidate validation with refreshed project workbooks.
+
 Generated rescue presets currently use content-addressed names such as
 `registration_0f48f693ed5a`. These names are deliberately based on the full
 scientific preset, rather than a short label such as `pad500um`: the same
@@ -84,13 +87,11 @@ readable override can be applied to different inherited parameter sets, and
 historical batches can contain different presets with the same readable name.
 The hash therefore prevents silent reuse of scientifically different files.
 
-The technical preset ID should not be presented as an evaluator-facing label.
-The human-readable identity of a run is its run path, strategy, source run,
-and explicit variant/parameter values. Proposed direction: retain the preset
-ID in TOMLs, manifests, and provenance, but remove or hide `Preset name` from
-the active evaluation view and rely on `Run path` (with an optional
-human-readable parameter summary) instead. Preserve backwards-compatible
-reading of existing workbooks while introducing the finalized workbook view.
+The technical preset ID is retained in TOMLs, manifests, provenance, and the
+evaluation workbook's internal data, but the `Preset name` column is hidden in
+the active evaluation view. Evaluators use the readable `Run path` as the run
+identity. Existing workbooks remain readable, and a normal refresh rewrites
+the canonical sheet with the internal preset column hidden.
 
 ### Replace the `BatchSubject` compatibility adapter
 

@@ -81,6 +81,9 @@ def _replace_run_sheet(workbook, rows) -> None:
             )
         )
     _format_table_sheet(sheet)
+    preset_column = RUN_EVALUATION_COLUMNS.index("Preset name") + 1
+    preset_letter = sheet.cell(1, preset_column).column_letter
+    sheet.column_dimensions[preset_letter].hidden = True
 
 
 def _replace_rescue_sheet(workbook, rows) -> None:
