@@ -14,7 +14,8 @@ or replacing transformed segmentations after registration.
 ## Ownership Boundaries
 
 - `atlasspace` owns spatial definitions, transforms, registration results, and
-  the `registration_result.json` contract.
+  the `registration_result.json` contract, including registration-aware point
+  transformation between normalized fixed and moving image grids.
 - `lsfm_data_processing` owns reusable batch workflow behavior: evaluation
   workbooks, rescue planning, mask-assisted rescue preparation, HPC submission,
   distribution, and batch-level orchestration.

@@ -32,6 +32,43 @@ step derived from `custom_rescue/pad1000um` should be represented as
 Do not retrofit this behavior to active or completed batches. Use `custom`
 for any required iterative combination until the shared behavior is released.
 
+Source-derived rescues must inherit the full execution context, not only the
+parameter snapshot. In particular, a follow-up to a mask-assisted run must
+reuse that run's masked subject-image input as well as its registration
+parameters. Store and resolve this source input from the generated job
+provenance or registration configuration, rather than assuming the project's
+unmasked native image.
+
+The workflow must also support an alternate parameter source with an already
+accepted mask. This is distinct from requesting a new masking operation: it
+reuses the existing subject-level masked native image and must not create a
+second mask-review workspace, reapply a mask, or overwrite that shared masked
+image. For example, a subject with an accepted mask may be rerun using the
+parameter snapshot from `padding_rescue/wr20um_pad500um`; the output should
+remain source-derived and distinct while the mask input is reused unchanged.
+
+### Support intentional replacement of a mask rescue in place
+
+When post-registration review shows that a completed mask was not optimal,
+the practical workflow is often to replace that mask rescue rather than retain
+an inferior run and create a parallel revision workspace. The current workflow
+does not support this: editing `brain_mask_50um_complete.nii.gz` leaves the
+previous native mask and masked subject image in place, and the terminal rescue
+status prevents regeneration.
+
+Proposed direction: provide an explicit, confirmation-gated `replace mask
+rescue` action for a source run. It deliberately removes only the generated
+mask-rescue output, generated native mask, generated masked subject image, and
+the corresponding human evaluation for that output run; it never deletes the
+user-edited completed mask or review files. It then resets the existing masking
+request to pending and regenerates the same paths from the edited completed
+mask. This keeps the ordinary correction workflow simple while ensuring the
+replacement is never triggered implicitly by a file edit.
+
+Do not infer replacement merely because a completed-mask file was edited. The
+explicit action prevents accidental resubmission and makes the intentional
+replacement visible in the workflow.
+
 ### Separate human-facing run labels from content-addressed preset IDs
 
 Generated rescue presets currently use content-addressed names such as
@@ -78,6 +115,38 @@ registration output.
 
 Do not remove the current sidecars until the manifest schema and migration
 path have been designed and the active project workflows have been checked.
+
+The consolidated manifest must also record the size and SHA256 digest of every
+subject-image input, especially generated masked images. Submission preflight
+and job startup must verify the transferred HPC input against that record so a
+revised local mask cannot accidentally be paired with a stale remote masked
+image. The compact successful check should read, for example,
+`IEB0158 input: ch2_native20um_masked.nii.gz. verified sha256: yes`. A mismatch
+must stop submission with a direct instruction to transfer the updated file.
+
+### Reconstruct submission helpers from unfinished generated requests
+
+A rescue request marked `generated` may outlive, or become disconnected from,
+its batch submission helper. Rerunning rescue preparation must be able to
+reconstruct the helper from generated artifacts and current run manifests,
+without regenerating scientifically immutable TOMLs or asking the user to reset
+the workbook status manually.
+
+Include generated requests that have no terminal registration result. Exclude
+requests whose expected runs are complete or failed. Helper generation must be
+deterministic and resumable when only a subset of expanded jobs has finished.
+
+### Make masking dry-runs describe both preparation stages
+
+Mask-assisted rescue preparation has two local stages: applying a completed
+review mask, then generating the registration rescue that consumes the masked
+image. Plan-only output currently reports the first action while sometimes
+claiming that the second stage writes no files because those artifacts are
+planned only after application.
+
+The dry-run must present the complete staged outcome without writing either
+stage. It should distinguish files produced by mask application from rescue
+artifacts that become valid once those planned mask outputs exist.
 
 ### Simplify HPC dry-run output
 
