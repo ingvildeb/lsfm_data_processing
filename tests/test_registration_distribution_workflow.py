@@ -339,6 +339,44 @@ def test_verified_temporary_copy_is_promoted_without_recopying(
     assert not partial.exists()
 
 
+def test_partial_copy_name_stays_below_windows_limit_for_long_destination() -> None:
+    destination = Path(
+        "Z:/LSFM/2026/2026_02/2026_02_04/"
+        "20260204_11_58_48_EH_IEB0186_F_P2_Aldh1_LAS_488GFP_561Bg_640Sytox_"
+        "4x_5umstep_Destripe_DONE/_spatialsignal/registration_runs/"
+        "lower_gradient_step_rescue/from_baseline_gs0p01/"
+        "ANTsPy_0GenericAffine.mat"
+    )
+
+    temporary = distribution._partial_copy_path(destination)
+    legacy_temporary = distribution._legacy_partial_copy_path(destination)
+
+    assert len(str(destination)) < 260
+    assert len(str(temporary)) < 260
+    assert len(str(legacy_temporary)) >= 260
+
+
+def test_verified_legacy_temporary_copy_is_promoted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.nii.gz"
+    destination = tmp_path / "result" / "output.nii.gz"
+    source.write_bytes(b"complete legacy payload")
+    destination.parent.mkdir()
+    legacy_partial = distribution._legacy_partial_copy_path(destination)
+    legacy_partial.write_bytes(source.read_bytes())
+
+    def unexpected_copy(*_args, **_kwargs) -> None:
+        raise AssertionError("verified legacy temporary file should not be recopied")
+
+    monkeypatch.setattr(distribution.shutil, "copyfileobj", unexpected_copy)
+    copy_and_verify(RegistrationCopyOperation(source, destination, "copy"))
+
+    assert destination.read_bytes() == source.read_bytes()
+    assert not legacy_partial.exists()
+    assert not distribution._partial_copy_path(destination).exists()
+
+
 def test_differing_final_destination_is_a_conflict(tmp_path: Path) -> None:
     subjects = tmp_path / "subjects"
     source = subjects / "A"

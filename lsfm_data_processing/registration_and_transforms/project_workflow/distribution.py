@@ -18,7 +18,8 @@ TRANSFERRED_SUFFIX = "_transferred"
 SELECTION_METADATA_FILENAME = "registration_selection.json"
 EXCLUSION_METADATA_FILENAME = "registration_exclusion.json"
 IN_PROGRESS_METADATA_FILENAME = ".registration_distribution_in_progress.json"
-PARTIAL_COPY_SUFFIX = ".registration_distribution.partial"
+PARTIAL_COPY_SUFFIX = ".partial"
+LEGACY_PARTIAL_COPY_SUFFIX = ".registration_distribution.partial"
 
 
 @dataclass(frozen=True)
@@ -241,16 +242,25 @@ def plan_verified_copy(
 
 def copy_and_verify(operation: RegistrationCopyOperation) -> None:
     temporary = _partial_copy_path(operation.destination)
+    legacy_temporary = _legacy_partial_copy_path(operation.destination)
     if operation.state == "already_present":
         if not files_match(operation.source, operation.destination):
             raise FileExistsError(
                 f"Existing destination changed after preflight: {operation.destination}"
             )
         _remove_partial_copy(temporary)
+        _remove_partial_copy(legacy_temporary)
         return
     if operation.state != "copy":
         raise ValueError(f"Unsupported copy operation state: {operation.state!r}")
     operation.destination.parent.mkdir(parents=True, exist_ok=True)
+    if legacy_temporary.exists():
+        if not files_match(operation.source, legacy_temporary):
+            _remove_partial_copy(legacy_temporary)
+        elif not temporary.exists():
+            legacy_temporary.replace(temporary)
+        else:
+            _remove_partial_copy(legacy_temporary)
     if operation.destination.exists():
         if not files_match(operation.source, operation.destination):
             raise FileExistsError(
@@ -281,6 +291,25 @@ def copy_and_verify(operation: RegistrationCopyOperation) -> None:
 
 def _partial_copy_path(destination: Path) -> Path:
     return destination.with_name(f".{destination.name}{PARTIAL_COPY_SUFFIX}")
+
+
+def _legacy_partial_copy_path(destination: Path) -> Path:
+    return destination.with_name(
+        f".{destination.name}{LEGACY_PARTIAL_COPY_SUFFIX}"
+    )
+
+
+def _partial_copy_paths(destination: Path) -> tuple[Path, Path]:
+    return (
+        _partial_copy_path(destination),
+        _legacy_partial_copy_path(destination),
+    )
+
+
+def _is_distribution_temporary(path: Path) -> bool:
+    return path.name.startswith(".") and path.name.endswith(
+        (PARTIAL_COPY_SUFFIX, LEGACY_PARTIAL_COPY_SUFFIX)
+    )
 
 
 def _remove_partial_copy(path: Path) -> None:
@@ -486,20 +515,20 @@ def _plan_legacy_archive(
     metadata: Mapping[str, Any],
 ) -> tuple[Path, Path] | None:
     progress = canonical / IN_PROGRESS_METADATA_FILENAME
-    partial_progress = _partial_copy_path(progress)
     selection = canonical / SELECTION_METADATA_FILENAME
     if progress.is_file() and progress.read_text(encoding="utf-8") != _metadata_text(
         metadata
     ):
         raise FileExistsError(f"Distribution marker differs: {progress}")
-    if partial_progress.exists() and not partial_progress.is_file():
-        raise FileExistsError(
-            f"Distribution temporary marker is not a file: {partial_progress}"
-        )
+    for partial_progress in _partial_copy_paths(progress):
+        if partial_progress.exists() and not partial_progress.is_file():
+            raise FileExistsError(
+                f"Distribution temporary marker is not a file: {partial_progress}"
+            )
     if canonical.is_dir() and not selection.is_file() and not progress.is_file():
         entries = tuple(canonical.iterdir())
         only_distribution_temporaries = all(
-            item.is_file() and item.name.endswith(PARTIAL_COPY_SUFFIX)
+            item.is_file() and _is_distribution_temporary(item)
             for item in entries
         )
         if not only_distribution_temporaries:
@@ -545,16 +574,16 @@ def _validate_progress_destination(
     destination: Path, metadata: Mapping[str, Any]
 ) -> None:
     progress = destination / IN_PROGRESS_METADATA_FILENAME
-    partial_progress = _partial_copy_path(progress)
     if progress.exists() and (
         not progress.is_file()
         or progress.read_text(encoding="utf-8") != _metadata_text(metadata)
     ):
         raise FileExistsError(f"Distribution marker differs: {progress}")
-    if partial_progress.exists() and not partial_progress.is_file():
-        raise FileExistsError(
-            f"Distribution temporary marker is not a file: {partial_progress}"
-        )
+    for partial_progress in _partial_copy_paths(progress):
+        if partial_progress.exists() and not partial_progress.is_file():
+            raise FileExistsError(
+                f"Distribution temporary marker is not a file: {partial_progress}"
+            )
 
 
 def _ensure_progress_marker(
@@ -569,12 +598,15 @@ def _ensure_progress_marker(
 
 def _write_new_or_validate_identical(path: Path, content: str) -> None:
     temporary = _partial_copy_path(path)
+    legacy_temporary = _legacy_partial_copy_path(path)
     if path.exists():
         if not path.is_file() or path.read_text(encoding="utf-8") != content:
             raise FileExistsError(f"Existing metadata differs: {path}")
         _remove_partial_copy(temporary)
+        _remove_partial_copy(legacy_temporary)
         return
     path.parent.mkdir(parents=True, exist_ok=True)
+    _remove_partial_copy(legacy_temporary)
     if temporary.exists():
         if not temporary.is_file():
             raise FileExistsError(
