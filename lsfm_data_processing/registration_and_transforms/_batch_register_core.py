@@ -29,6 +29,8 @@ BATCH_LOCAL_CANONICAL_TEMPLATE = CanonicalConfigTemplate(
 class BatchRegisterSettings:
     config_path: Path
     jobs: list[registration.RegistrationJob]
+    subject_image_ids: list[str]
+    template_image_ids: list[str]
 
 
 @dataclass(frozen=True)
@@ -36,12 +38,17 @@ class BatchJobSpec:
     job_index: int
     fixed_image_id: str
     moving_image_id: str
+    subject_image_id: str
+    template_image_id: str
     preset_name: str
     output_dir: Path
 
     @property
     def label(self) -> str:
-        return f"{self.moving_image_id} -> {self.fixed_image_id} ({self.preset_name})"
+        return (
+            f"{self.subject_image_id} with template {self.template_image_id} "
+            f"({self.preset_name})"
+        )
 
 
 @dataclass(frozen=True)
@@ -92,9 +99,24 @@ def load_batch_register_settings_from_path(config_path: Path) -> BatchRegisterSe
     jobs = registration.build_jobs_from_plan(plan)
     if not jobs:
         raise RuntimeError("No batch jobs were produced by the registration plan.")
+    subject_image_ids: list[str] = []
+    template_image_ids: list[str] = []
+    for pair in plan.pairs:
+        subject_image_id = pair.run_image_id or pair.moving_image_id
+        template_image_id = (
+            pair.moving_image_id
+            if subject_image_id == pair.fixed_image_id
+            else pair.fixed_image_id
+        )
+        for _ in plan.preset_references:
+            subject_image_ids.append(subject_image_id)
+            template_image_ids.append(template_image_id)
+
     return BatchRegisterSettings(
         config_path=resolved_path,
         jobs=jobs,
+        subject_image_ids=subject_image_ids,
+        template_image_ids=template_image_ids,
     )
 
 
@@ -113,6 +135,8 @@ def get_batch_job_spec(
         job_index=job_index,
         fixed_image_id=job.fixed_image_config.image_id,
         moving_image_id=job.moving_image_config.image_id,
+        subject_image_id=settings.subject_image_ids[job_index],
+        template_image_id=settings.template_image_ids[job_index],
         preset_name=job.parameters.name,
         output_dir=job.output_dir,
     )
@@ -202,6 +226,8 @@ def _resolve_registration_job(
     if (
         job_spec.fixed_image_id != expected_spec.fixed_image_id
         or job_spec.moving_image_id != expected_spec.moving_image_id
+        or job_spec.subject_image_id != expected_spec.subject_image_id
+        or job_spec.template_image_id != expected_spec.template_image_id
         or job_spec.preset_name != expected_spec.preset_name
         or job_spec.output_dir != expected_spec.output_dir
     ):

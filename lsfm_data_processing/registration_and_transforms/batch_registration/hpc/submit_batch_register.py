@@ -163,7 +163,7 @@ except (FileNotFoundError, RuntimeError, ValueError) as exc:
     raise SystemExit(1) from exc
 if input_verification is not None:
     verified_subject = input_verification.split(" input:", maxsplit=1)[0]
-    configured_subjects = {job_spec.moving_image_id for job_spec in job_specs}
+    configured_subjects = {job_spec.subject_image_id for job_spec in job_specs}
     if verified_subject not in configured_subjects:
         print(
             "[error] Rescue provenance subject does not match the registration "
@@ -177,23 +177,36 @@ skipped_count = 0
 blocked_count = 0
 for job_spec, job in zip(job_specs, registration_settings.jobs, strict=True):
     if skip_if_output_exists and _registration_output_exists(job_spec.output_dir):
-        print(f"[skip] {job_spec.moving_image_id}: output already exists")
+        print(f"[skip] {job_spec.subject_image_id}: output already exists")
         skipped_count += 1
         continue
 
-    missing = missing_registration_inputs(job)
+    missing = missing_registration_inputs(
+        job,
+        subject_image_id=job_spec.subject_image_id,
+        template_image_id=job_spec.template_image_id,
+    )
     if missing:
-        print(format_missing_job(job, missing), file=sys.stderr)
+        print(
+            format_missing_job(
+                job,
+                missing,
+                subject_image_id=job_spec.subject_image_id,
+            ),
+            file=sys.stderr,
+        )
         blocked_count += 1
         continue
 
     hash_verified = (
         input_verification is not None
-        and verified_subject == job_spec.moving_image_id
+        and verified_subject == job_spec.subject_image_id
     )
     print(
         format_ready_job(
             job,
+            subject_image_id=job_spec.subject_image_id,
+            template_image_id=job_spec.template_image_id,
             input_sha256_verified=hash_verified,
             mem_gb=mem_gb,
         )
@@ -204,8 +217,8 @@ for job_spec, job in zip(job_specs, registration_settings.jobs, strict=True):
         project_dir=project_dir,
         registration_config=registration_config,
         job_name_component=(
-            f"{job_spec.moving_image_id}__"
-            f"{job_spec.fixed_image_id}__"
+            f"{job_spec.subject_image_id}__"
+            f"{job_spec.template_image_id}__"
             f"{job_spec.preset_name}"
         ),
         job_index=job_spec.job_index,
@@ -240,7 +253,7 @@ if not dry_run:
             text=True,
         )
         response = completed.stdout.strip()
-        print(f"[submitted] {job_spec.moving_image_id}: {response}")
+        print(f"[submitted] {job_spec.subject_image_id}: {response}")
         submitted_count += 1
 
 if not grouped_submission:
