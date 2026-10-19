@@ -73,10 +73,13 @@ Evaluation refresh discovers runs from generated registration TOMLs and
 ## 2. Rescue Requests
 
 The standard rescue menu is identical for every project workflow and is not
-filtered or overridden by project configuration. It contains padding, lower
-gradient step, padding plus lower gradient step, higher gradient step, higher
-gradient step plus padding, bidirectional gradient step, resolution sweep,
-padding plus resolution sweep, high-memory retry, masking, and custom.
+filtered or overridden by project configuration. It contains `padding`,
+`gradient sweep 0.01/0.02/0.025`,
+`padding + gradient sweep 0.01/0.02/0.025`,
+`gradient sweep 0.06/0.07/0.08`,
+`padding + gradient sweep 0.06/0.07/0.08`,
+`gradient sweep 0.01/0.025/0.06`, `resolution sweep`,
+`padding + resolution sweep`, `high memory retry`, `masking`, and `custom`.
 Unusual parameter combinations use `custom` rather than adding a
 project-specific predefined strategy.
 
@@ -508,6 +511,8 @@ preflight with a difference report. Additional subjects require a new batch.
    `lsfm_data_processing`.
 4. Implement subject-specific rescue configs and shared masking state handling.
 5. Implement common resumability and distribution primitives. *(Implemented.)*
-6. Pilot in Chandelier Cell, then Triple Transgenic, Glia Mapping, and SING.
-   *(Chandelier Cell pilot implemented; remaining migrations pending.)*
-7. Remove project copies only after parity tests pass.
+6. Pilot in Chandelier Cell and validate the workflow through active Glia
+   Mapping and SING batches. *(Implemented; final Chandelier alignment and the
+   Triple Transgenic migration remain release work.)*
+7. Remove project copies only after intended-behavior tests demonstrate that
+   the shared implementation covers each project's required workflow.
