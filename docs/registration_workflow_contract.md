@@ -118,6 +118,10 @@ known for that subject.
 6. A failed variant requires an explicit retry request. It is not silently
    resubmitted.
 7. Request status is derived by synchronization code, not manually entered.
+8. Rescue preparation prominently warns about every unresolved subject that
+   has neither a selected run nor an unfinished rescue action. Completed and
+   failed historical requests do not suppress this warning; the user must
+   select a run, request another rescue, or explicitly exclude the subject.
 
 Supported request states include `pending`, `generated`, `completed`, `failed`,
 `awaiting_manual_mask`, `mask_ready`, `blocked_pending_rescues`,
@@ -278,6 +282,9 @@ Rules:
 6. Completion markers are written only after output validation.
 7. Evaluation synchronization preserves notes, decisions, and historical
    requests while appending newly discovered runs.
+   The `Selected` field is tri-state: `yes` is the final choice, `no` records
+   an explicitly rejected run, and blank means no selection decision was
+   entered. Workbook refresh preserves all three states.
 8. Submitted HPC job identifiers are recorded when available so rerunning a
    submit helper does not accidentally duplicate known submissions.
 9. ANTs failures require an explicit retry identity or attempt. They are

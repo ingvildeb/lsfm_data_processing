@@ -76,7 +76,13 @@ def _replace_run_sheet(workbook, rows) -> None:
         sheet.append(
             (
                 row.subject_id, row.run_path, row.preset_name, row.manifest_status,
-                row.result, row.comments, "yes" if row.selected else "",
+                row.result,
+                row.comments,
+                (
+                    "yes"
+                    if row.selected is True
+                    else "no" if row.selected is False else ""
+                ),
                 row.evaluator, row.evaluation_date,
             )
         )

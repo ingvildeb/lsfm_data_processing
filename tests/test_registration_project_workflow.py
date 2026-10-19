@@ -6,6 +6,7 @@ from lsfm_data_processing.registration_and_transforms.project_workflow.decisions
     known_runs_from_evaluations,
     resolve_final_decisions,
     resolve_rescue_requests,
+    summarize_rescue_request_warnings,
 )
 from lsfm_data_processing.registration_and_transforms.project_workflow.models import (
     RescueRequest,
@@ -186,6 +187,42 @@ def test_existing_request_state_is_preserved(existing_status: RescueRequestStatu
     )
 
     assert plan.active[0].status is existing_status
+
+
+def test_unresolved_subject_without_unfinished_rescue_is_reported() -> None:
+    decisions = resolve_final_decisions((), subject_ids=("A", "B", "C", "D"))
+    requests = (
+        RescueRequest("B", "Lower gradient step"),
+        RescueRequest("C", "Lower gradient step"),
+        RescueRequest("D", "Lower gradient step"),
+    )
+
+    plan = resolve_rescue_requests(
+        requests,
+        strategies=_strategies(),
+        decisions=decisions,
+        existing_statuses={
+            RescueRequestKey("C", "lower_gradient"): RescueRequestStatus.COMPLETED,
+            RescueRequestKey("D", "lower_gradient"): RescueRequestStatus.FAILED,
+        },
+    )
+
+    assert plan.unresolved_without_rescue == ("A", "C", "D")
+    summary = summarize_rescue_request_warnings(plan)
+    assert "Registration decisions are incomplete" in summary
+    assert "A, C, D" in summary
+    assert "Select a final run" in summary
+
+
+def test_selected_subject_is_not_reported_as_missing_rescue() -> None:
+    decisions = resolve_final_decisions(
+        (RunEvaluation("A", "baseline", selected=True, manifest_status="success"),)
+    )
+
+    plan = resolve_rescue_requests((), strategies=_strategies(), decisions=decisions)
+
+    assert not plan.unresolved_without_rescue
+    assert not summarize_rescue_request_warnings(plan)
 
 
 def test_known_runs_are_normalized_from_evaluations() -> None:

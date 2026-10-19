@@ -396,6 +396,8 @@ def test_hpc_helper_carries_per_job_memory_without_hardcoded_project_root() -> N
     assert "runtime_contract" in text
     assert "runtime_contract >/dev/null" in text
     assert "Registration dry run: batch001" in text
+    assert 'SUBMISSION_LOG_DIR="$BATCH_ROOT/logs/submission"' in text
+    assert 'report="$SUBMISSION_LOG_DIR/${config%.toml}_${MODE}.txt"' in text
     assert "[dry-run] sbatch" not in text
     assert "shared_registration/code" not in text
 

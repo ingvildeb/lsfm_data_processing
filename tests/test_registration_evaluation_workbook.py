@@ -153,6 +153,46 @@ def test_plan_apply_preserves_human_fields_and_auxiliary_sheets(
     assert len(second_plan.data.rescue_requests) == 1
 
 
+def test_refresh_preserves_explicit_no_and_untouched_blank_selection(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "registration_evaluation.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = RUN_EVALUATIONS_SHEET
+    sheet.append(RUN_EVALUATION_COLUMNS)
+    sheet.append(
+        ("A", "registration_runs/baseline", "baseline", "success", "", "", "no")
+    )
+    sheet.append(
+        ("B", "registration_runs/baseline", "baseline", "success", "", "", "")
+    )
+    workbook.save(path)
+
+    plan = build_evaluation_workbook_plan(
+        path=path,
+        discovered_runs=(
+            RunEvaluation("A", "registration_runs/baseline", manifest_status="success"),
+            RunEvaluation("B", "registration_runs/baseline", manifest_status="success"),
+        ),
+        strategies=(),
+    )
+    assert plan.data.run_evaluations[0].selected is False
+    assert plan.data.run_evaluations[1].selected is None
+
+    apply_evaluation_workbook_plan(plan)
+
+    refreshed = load_workbook(path, data_only=True)
+    selected_column = RUN_EVALUATION_COLUMNS.index("Selected") + 1
+    assert refreshed[RUN_EVALUATIONS_SHEET].cell(2, selected_column).value == "no"
+    assert refreshed[RUN_EVALUATIONS_SHEET].cell(3, selected_column).value is None
+    refreshed.close()
+
+    reread = read_evaluation_workbook(path).run_evaluations
+    assert reread[0].selected is False
+    assert reread[1].selected is None
+
+
 @pytest.mark.parametrize(
     ("statuses", "results", "expected"),
     (

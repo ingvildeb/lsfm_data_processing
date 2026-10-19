@@ -44,6 +44,14 @@ def selected_marker(value: Any) -> bool:
     return normalize_text(value).casefold() in {"1", "selected", "true", "yes"}
 
 
+def normalize_selected_value(value: Any) -> bool | None:
+    """Preserve the distinction between an explicit no and an empty cell."""
+
+    if not normalize_text(value):
+        return None
+    return selected_marker(value)
+
+
 class FinalDecisionKind(StrEnum):
     SELECTED = "selected"
     EXCLUDED = "excluded"
@@ -84,7 +92,7 @@ class RunEvaluation:
     manifest_status: str = ""
     result: str = ""
     comments: str = ""
-    selected: bool = False
+    selected: bool | None = None
     evaluator: str = ""
     evaluation_date: object | None = None
 
@@ -97,7 +105,9 @@ class RunEvaluation:
         )
         object.__setattr__(self, "result", normalize_text(self.result))
         object.__setattr__(self, "comments", normalize_text(self.comments))
-        object.__setattr__(self, "selected", selected_marker(self.selected))
+        object.__setattr__(
+            self, "selected", normalize_selected_value(self.selected)
+        )
         object.__setattr__(self, "evaluator", normalize_text(self.evaluator))
 
 
@@ -247,6 +257,7 @@ class RescueRequestPlan:
     ignored: tuple[ResolvedRescueRequest, ...]
     duplicates: tuple[DuplicateRescueRequest, ...]
     warnings: tuple[str, ...] = ()
+    unresolved_without_rescue: tuple[str, ...] = ()
 
     @property
     def all(self) -> tuple[ResolvedRescueRequest, ...]:

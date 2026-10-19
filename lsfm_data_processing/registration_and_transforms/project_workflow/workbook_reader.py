@@ -175,7 +175,7 @@ def build_evaluation_workbook_plan(
                 manifest_status=current.manifest_status,
                 result=old.result if old is not None else "",
                 comments=old.comments if old is not None else "",
-                selected=old.selected if old is not None else False,
+                selected=old.selected if old is not None else None,
                 evaluator=(
                     old.evaluator
                     if old is not None and old.evaluator
@@ -388,7 +388,14 @@ def _raise_for_duplicate_runs(rows: Iterable[RunEvaluation]) -> None:
 
 
 def _has_human_evaluation(row: RunEvaluation) -> bool:
-    return any((row.result, row.comments, row.selected, row.evaluation_date is not None))
+    return any(
+        (
+            row.result,
+            row.comments,
+            row.selected is not None,
+            row.evaluation_date is not None,
+        )
+    )
 
 
 def _workbook_has_sheet(path: Path, sheet_name: str) -> bool:

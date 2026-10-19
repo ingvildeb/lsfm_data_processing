@@ -219,11 +219,13 @@ esac
 
 BATCH_ROOT="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
 HPC_CONFIG="$BATCH_ROOT/configs/hpc.toml"
+SUBMISSION_LOG_DIR="$BATCH_ROOT/logs/submission"
 {manifest_setup}CONFIG_SPECS=(
 {specifications}
 )
 
 [[ -f "$HPC_CONFIG" ]] || {{ echo "Missing HPC config: $HPC_CONFIG" >&2; exit 1; }}
+mkdir -p "$SUBMISSION_LOG_DIR"
 for specification in "${{CONFIG_SPECS[@]}}"; do
   IFS='|' read -r config _ <<< "$specification"
   [[ -f "$BATCH_ROOT/configs/$config" ]] || {{ echo "Missing registration config: $config" >&2; exit 1; }}
@@ -254,7 +256,7 @@ for specification in "${{CONFIG_SPECS[@]}}"; do
   active_mem_gb="${{requested_mem_gb:-$DEFAULT_MEM_GB}}"
   sed -i "s|^registration_config = .*|registration_config = \\"configs/$config\\"|" "$HPC_CONFIG"
   sed -i "s/^mem_gb = .*/mem_gb = $active_mem_gb/" "$HPC_CONFIG"
-  report="$BATCH_ROOT/${{config%.toml}}_${{MODE}}.txt"
+  report="$SUBMISSION_LOG_DIR/${{config%.toml}}_${{MODE}}.txt"
   (cd "$BATCH_ROOT" && LSFM_GROUPED_SUBMISSION=1 python -m lsfm_data_processing.registration_and_transforms.batch_registration.hpc.submit_batch_register) | tee "$report"
 done
 

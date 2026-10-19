@@ -191,6 +191,10 @@ logs/sweep_registration/
 
 Each job writes `.out` and `.err` files there.
 
+Generated batch submission helpers write their compact dry-run and submission
+reports under `logs/submission/`. These reports are separate from the Slurm
+job logs and are safe to retain as submission history.
+
 ## Quick Checklist
 
 Before launching real jobs, make sure:

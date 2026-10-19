@@ -28,6 +28,18 @@ class WorkflowContractError(ValueError):
     """Raised when normalized workflow records violate the shared contract."""
 
 
+_UNFINISHED_RESCUE_STATUSES = frozenset(
+    {
+        RescueRequestStatus.PENDING,
+        RescueRequestStatus.GENERATED,
+        RescueRequestStatus.AWAITING_MANUAL_MASK,
+        RescueRequestStatus.MASK_READY,
+        RescueRequestStatus.BLOCKED_PENDING_RESCUES,
+        RescueRequestStatus.CONFLICT,
+    }
+)
+
+
 def resolve_final_decisions(
     evaluations: Iterable[RunEvaluation],
     *,
@@ -253,12 +265,44 @@ def resolve_rescue_requests(
         for key, count in occurrences.items()
         if count > 1
     )
+    subjects_with_unfinished_rescues = {
+        item.request.subject_id
+        for item in active_by_key.values()
+        if item.status in _UNFINISHED_RESCUE_STATUSES
+    }
+    unresolved_without_rescue = tuple(
+        sorted(
+            subject_id
+            for subject_id, decision in decisions.items()
+            if decision.kind is FinalDecisionKind.UNRESOLVED
+            and subject_id not in subjects_with_unfinished_rescues
+        )
+    )
     return RescueRequestPlan(
         active=tuple(active_by_key.values()),
         ignored=tuple(ignored),
         duplicates=duplicates,
         warnings=tuple(warnings),
+        unresolved_without_rescue=unresolved_without_rescue,
     )
+
+
+def summarize_rescue_request_warnings(plan: RescueRequestPlan) -> str:
+    """Summarize non-blocking issues that need attention before a batch is done."""
+
+    lines = [f"WARNING: {message}" for message in plan.warnings]
+    if plan.unresolved_without_rescue:
+        subject_list = ", ".join(plan.unresolved_without_rescue)
+        lines.extend(
+            (
+                "WARNING: Registration decisions are incomplete.",
+                "Subjects with no selected run and no unfinished rescue action "
+                f"({len(plan.unresolved_without_rescue)}): {subject_list}",
+                "Select a final run, enter a new rescue request, or explicitly "
+                "exclude each subject before considering the batch complete.",
+            )
+        )
+    return "\n".join(lines)
 
 
 def _normalize_known_runs(
