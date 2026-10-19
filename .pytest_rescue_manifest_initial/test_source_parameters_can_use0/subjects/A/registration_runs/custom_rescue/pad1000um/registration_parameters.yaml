@@ -1,6 +1,0 @@
-name: source_pad1000um
-preprocessing:
-  fixed_padding_um: 1000
-registration:
-  syn_gradient_step: 0.04
-  working_resolution_um: 30
