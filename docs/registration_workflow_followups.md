@@ -6,22 +6,28 @@ validation. Active runtime requirements belong in
 `registration_workflow_contract.md`; temporary compatibility belongs in
 `registration_workflow_migration.md`.
 
+## Deferred Until After 0.3.0
+
+### Replace The `BatchSubject` Compatibility Adapter After 0.3.0
+
+**Decision:** defer this internal cleanup until after the 0.3.0 release.
+
+`BatchSubject` is project-local and is not part of the shared public API, so
+retaining it does not constrain 0.3.0 users. Removing it now would introduce
+cross-project churn after workflow validation without changing runtime
+behavior. The current adapters also carry details that are deliberately absent
+from canonical membership records: Glia tracks the source spreadsheet row,
+project code converts portable string paths into local `Path` objects, and
+rescue generation sometimes constructs a transient subject description rather
+than a new membership record.
+
+Revisit the adapter after 0.3.0. Remove it only when shared interfaces can
+accept `BatchMember` without forcing tracker-only or rescue-only state into the
+membership schema, all four projects have migrated to those interfaces, and
+their intended-behavior suites pass. A small project-specific selection record
+may remain where tracker provenance is genuinely local.
+
 ## Remaining Release Work
-
-### Replace The `BatchSubject` Compatibility Adapter
-
-Project adapters currently convert shared `BatchMember` records into a thin
-project-local `BatchSubject` type for preparation, generation, and rescue
-calls. Update the shared interfaces to accept `BatchMember` directly, then
-remove `BatchSubject` only after all four projects pass intended-behavior
-validation against those interfaces.
-
-### Verify Complete Staged Masking Dry Runs
-
-The shared mask plan reports derived outputs and exposes completed-mask plans
-that become rescue-ready after application. Each final project adapter must
-show both planned stages without writing files: applying the completed mask,
-then generating the rescue artifacts that consume the masked image.
 
 ### Complete Project Adapter Validation
 
@@ -31,6 +37,14 @@ Triple Transgenic still requires migration. The detailed state and temporary
 compatibility rules are recorded in `registration_workflow_migration.md`.
 
 ## Implemented On Main For 0.3.0
+
+### Complete Staged Masking Dry Runs
+
+The shared mask plan reports derived outputs and exposes completed-mask plans
+that become rescue-ready after application. Adapter tests in Glia Mapping,
+SING, Chandelier Cell, and Triple Transgenic verify that plan mode reports the
+future mask-derived writes without applying them and that apply mode performs
+the mask step, replans, and generates the rescue in the same invocation.
 
 ### Source-Derived Automatic Rescues
 
