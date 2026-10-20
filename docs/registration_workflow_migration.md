@@ -6,12 +6,12 @@ must not be removed until its stated removal condition is satisfied.
 
 ## Project Status
 
-| Project | Current status | Remaining release work |
+| Project | Current status | Post-release rollout |
 | --- | --- | --- |
-| Glia Mapping | Shared workflow is wired and has been exercised through active production batches, including masking, rescue submission, and retry-safe distribution. | Run the final plan-only checks and pin the released package. |
-| SING | Shared workflow is wired and is being exercised with batch013, including concise HPC submission output. | Run the final plan-only checks and pin the released package. |
-| Chandelier Cell | Active batches use the shared package; the adapter and intended-behavior tests are aligned with the final API. | Run the final plan-only checks and pin the released package. |
-| Triple Transgenic | The numbered workflow uses the shared package while completed historical batches remain unchanged. | Run the final plan-only checks and pin the released package. |
+| Glia Mapping | Shared workflow is wired and has been exercised through active production batches, including masking, rescue submission, and retry-safe distribution. | Pin `v0.3.0` and verify the tagged installation with tests and plan-only checks. |
+| SING | Shared workflow is wired and is being exercised with batch013, including concise HPC submission output. | Pin `v0.3.0` and verify the tagged installation with tests and plan-only checks. |
+| Chandelier Cell | Active batches use the shared package; the adapter and intended-behavior tests are aligned with the final API. | Pin `v0.3.0` and verify the tagged installation with tests and plan-only checks. |
+| Triple Transgenic | The numbered workflow uses the shared package while completed historical batches remain unchanged. | Pin `v0.3.0` and verify the tagged installation with tests and plan-only checks. |
 
 ## Compatibility Ledger
 

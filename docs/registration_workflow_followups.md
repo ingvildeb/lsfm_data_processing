@@ -1,20 +1,20 @@
 # Registration Workflow Follow-Ups
 
-This ledger distinguishes shared behavior already implemented on `main` for
-the `0.3.0` release from migration work that still requires project-level
-validation. Active runtime requirements belong in
+This ledger distinguishes shared behavior implemented for the `0.3.0` release
+from post-release project rollout and future cleanup. Active runtime
+requirements belong in
 `registration_workflow_contract.md`; temporary compatibility belongs in
 `registration_workflow_migration.md`.
 
-## Remaining Release Work
+## Post-Release Rollout
 
-### Complete Project Adapter Validation
+### Pin And Verify The Tagged Release
 
-All four project adapters are aligned with the candidate shared workflow and
-their intended-behavior suites pass. The remaining release work is to review
-and commit the canonical-membership cleanup, run final project plan-only checks
-against `main`, and update dependency pins to the released version. Temporary
-compatibility rules remain recorded in `registration_workflow_migration.md`.
+All four project adapters are aligned with the shared workflow and their
+intended-behavior suites pass. After `v0.3.0` is tagged, update each project's
+dependency pin, install the tagged package, and run its registration tests and
+plan-only workflow checks. Temporary compatibility rules remain recorded in
+`registration_workflow_migration.md` until their removal conditions are met.
 
 ## Implemented On Main For 0.3.0
 

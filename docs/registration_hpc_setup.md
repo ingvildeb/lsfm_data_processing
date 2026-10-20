@@ -34,7 +34,7 @@ Install the tagged registration stack directly from GitHub:
 ```bash
 python -m pip install --upgrade pip
 python -m pip install \
-  "lsfm-data-processing[registration] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.2.0"
+  "lsfm-data-processing[registration] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.3.0"
 ```
 
 Verify versions, module locations, and the registration-result contract with:
@@ -43,7 +43,7 @@ Verify versions, module locations, and the registration-result contract with:
 python -m lsfm_data_processing.registration_and_transforms.runtime_contract
 ```
 
-The check must report `atlasspace 0.2.0`, `lsfm_data_processing 0.2.0`,
+The check must report `atlasspace 0.2.1`, `lsfm_data_processing 0.3.0`,
 `registration_result.json` schema `1`, and package paths under the active
 environment's `site-packages` directory.
 

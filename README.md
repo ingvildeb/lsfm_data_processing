@@ -16,7 +16,7 @@ For reproducible registration use, install the tagged package with its registrat
 
 ```powershell
 python -m pip install --upgrade pip
-python -m pip install "lsfm-data-processing[registration] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.2.0"
+python -m pip install "lsfm-data-processing[registration] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.3.0"
 ```
 
 For development from a local checkout, use an editable install instead:
@@ -37,8 +37,8 @@ For registration config setup, see `docs/registration_config_setup.md`. For HPC 
 `docs/registration_hpc_setup.md`. For custom ANTs/ANTsPy parameter presets, see `docs/registration_presets.md`.
 The shared project-workflow behavior and its acceptance-test matrix are defined in
 `docs/registration_workflow_contract.md`. Temporary migration compatibility is
-tracked in `docs/registration_workflow_migration.md`; remaining release and
-adapter work is tracked in `docs/registration_workflow_followups.md`.
+tracked in `docs/registration_workflow_migration.md`; implemented behavior and
+future follow-ups are tracked in `docs/registration_workflow_followups.md`.
 
 Reusable project orchestration models, evaluation-workbook adapters,
 mask-assisted rescue handling, and resumable registration distribution live in
