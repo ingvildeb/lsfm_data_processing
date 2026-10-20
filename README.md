@@ -38,7 +38,9 @@ For registration config setup, see `docs/registration_config_setup.md`. For HPC 
 The shared project-workflow behavior and its acceptance-test matrix are defined in
 `docs/registration_workflow_contract.md`. Temporary migration compatibility is
 tracked in `docs/registration_workflow_migration.md`; implemented behavior and
-future follow-ups are tracked in `docs/registration_workflow_followups.md`.
+future follow-ups are tracked in `docs/registration_workflow_followups.md`. The
+finite audit for retiring historical compatibility is defined in
+`docs/registration_compatibility_retirement.md`.
 
 Reusable project orchestration models, evaluation-workbook adapters,
 mask-assisted rescue handling, and resumable registration distribution live in

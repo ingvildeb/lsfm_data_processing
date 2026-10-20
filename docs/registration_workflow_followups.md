@@ -8,13 +8,15 @@ requirements belong in
 
 ## Post-Release Rollout
 
-### Pin And Verify The Tagged Release
+### Complete Tagged-Release Validation
 
-All four project adapters are aligned with the shared workflow and their
-intended-behavior suites pass. After `v0.3.0` is tagged, update each project's
-dependency pin, install the tagged package, and run its registration tests and
-plan-only workflow checks. Temporary compatibility rules remain recorded in
-`registration_workflow_migration.md` until their removal conditions are met.
+All four project adapters and local environments are pinned to `v0.3.0`; the
+shared HPC environment also passes the tagged runtime contract. Finish batches
+started before the release and validate the next Triple Transgenic batch before
+retiring historical compatibility. Temporary rules remain recorded in
+`registration_workflow_migration.md`, and the manifest backfill, audit, and
+`v0.4.0` removal gate are defined in
+`registration_compatibility_retirement.md`.
 
 ## Implemented On Main For 0.3.0
 
