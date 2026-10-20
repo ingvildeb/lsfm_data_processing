@@ -6,37 +6,30 @@ validation. Active runtime requirements belong in
 `registration_workflow_contract.md`; temporary compatibility belongs in
 `registration_workflow_migration.md`.
 
-## Deferred Until After 0.3.0
-
-### Replace The `BatchSubject` Compatibility Adapter After 0.3.0
-
-**Decision:** defer this internal cleanup until after the 0.3.0 release.
-
-`BatchSubject` is project-local and is not part of the shared public API, so
-retaining it does not constrain 0.3.0 users. Removing it now would introduce
-cross-project churn after workflow validation without changing runtime
-behavior. The current adapters also carry details that are deliberately absent
-from canonical membership records: Glia tracks the source spreadsheet row,
-project code converts portable string paths into local `Path` objects, and
-rescue generation sometimes constructs a transient subject description rather
-than a new membership record.
-
-Revisit the adapter after 0.3.0. Remove it only when shared interfaces can
-accept `BatchMember` without forcing tracker-only or rescue-only state into the
-membership schema, all four projects have migrated to those interfaces, and
-their intended-behavior suites pass. A small project-specific selection record
-may remain where tracker provenance is genuinely local.
-
 ## Remaining Release Work
 
 ### Complete Project Adapter Validation
 
-Glia Mapping and SING require final commits and plan-only checks against
-`main`. Chandelier Cell requires final adapter alignment and updated tests.
-Triple Transgenic still requires migration. The detailed state and temporary
-compatibility rules are recorded in `registration_workflow_migration.md`.
+All four project adapters are aligned with the candidate shared workflow and
+their intended-behavior suites pass. The remaining release work is to review
+and commit the canonical-membership cleanup, run final project plan-only checks
+against `main`, and update dependency pins to the released version. Temporary
+compatibility rules remain recorded in `registration_workflow_migration.md`.
 
 ## Implemented On Main For 0.3.0
+
+### Canonical Batch Membership In Project Adapters
+
+Glia Mapping, SING, Chandelier Cell, and Triple Transgenic now pass shared
+`BatchMember` records directly through membership, preparation, and baseline
+generation. Local filesystem paths are converted to `Path` objects only at the
+preparation boundary. Glia's tracker source row remains in its selection audit
+table but is not treated as stable batch identity or written into native-image
+provenance.
+
+Rescue generation uses an explicit subject/template specification derived from
+the immutable baseline mapping. It no longer constructs placeholder membership
+records with values such as `age="baseline"`.
 
 ### Complete Staged Masking Dry Runs
 

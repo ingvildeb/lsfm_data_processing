@@ -8,10 +8,10 @@ must not be removed until its stated removal condition is satisfied.
 
 | Project | Current status | Remaining release work |
 | --- | --- | --- |
-| Glia Mapping | Shared workflow is wired and has been exercised through active production batches, including masking, rescue submission, and retry-safe distribution. | Commit the final adapter polish and run the registration suite and plan-only checks against `main`. |
-| SING | Shared workflow is wired and is being exercised with batch013, including concise HPC submission output. | Commit the migration, preserve hemisphere backtransfer, and run the registration suite and plan-only checks against `main`. |
-| Chandelier Cell | The shared workflow pilot and batch membership migration are complete; active batches use the shared package. | Align the adapter with the final API and replace stale pre-final test expectations. |
-| Triple Transgenic | Historical batches remain unchanged. | Migrate the numbered workflow and validate preparation, evaluation, rescue, and distribution in plan-only mode. |
+| Glia Mapping | Shared workflow is wired and has been exercised through active production batches, including masking, rescue submission, and retry-safe distribution. | Run the final plan-only checks and pin the released package. |
+| SING | Shared workflow is wired and is being exercised with batch013, including concise HPC submission output. | Run the final plan-only checks and pin the released package. |
+| Chandelier Cell | Active batches use the shared package; the adapter and intended-behavior tests are aligned with the final API. | Run the final plan-only checks and pin the released package. |
+| Triple Transgenic | The numbered workflow uses the shared package while completed historical batches remain unchanged. | Run the final plan-only checks and pin the released package. |
 
 ## Compatibility Ledger
 
