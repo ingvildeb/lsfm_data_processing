@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-21
+
+### Fixed
+
+- Registration installations now use `atlasspace v0.2.2`, allowing
+  post-registration segmentation transformation when a valid result manifest
+  omits the optional declared moving-image shape.
+
 ## [0.3.0] - 2026-10-20
 
 ### Added
