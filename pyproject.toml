@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lsfm-data-processing"
-version = "0.3.1"
+version = "0.3.2"
 description = "Reusable utilities and scripts for LSFM data processing workflows"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,7 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 registration = [
-  "atlasspace @ git+https://github.com/ingvildeb/atlasspace.git@v0.2.2",
+  "atlasspace @ git+https://github.com/ingvildeb/atlasspace.git@v0.2.3",
   "openpyxl>=3.1",
   "pyyaml>=6"
 ]

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-22
+
+### Fixed
+
+- Registration installations now use `atlasspace v0.2.3`, which records all
+  declared and effective image shapes for new registrations and supports
+  post-registration segmentation transformation for existing manifests with
+  omitted shape metadata.
+
 ## [0.3.1] - 2026-10-21
 
 ### Fixed
