@@ -1,0 +1,442 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import shutil
+
+import nibabel as nib
+import numpy as np
+from openpyxl import Workbook
+import pytest
+
+from lsfm_data_processing.registration_and_transforms.project_workflow.decisions import (
+    resolve_final_decisions,
+    resolve_rescue_requests,
+)
+from lsfm_data_processing.registration_and_transforms.project_workflow.mask_replacement import (
+    apply_revised_mask_replacement_plan,
+    build_revised_mask_replacement_plan,
+)
+from lsfm_data_processing.registration_and_transforms.project_workflow.masking import (
+    MaskingSettings,
+    apply_masking_plans,
+    build_masking_plans,
+    masking_plans_ready_for_rescue,
+    summarize_masking_plans,
+)
+from lsfm_data_processing.registration_and_transforms.project_workflow.models import (
+    RescueRequest,
+    RescueRequestStatus,
+    RescueStrategy,
+    RescueStrategyKind,
+    SourceRunRequirement,
+)
+from lsfm_data_processing.registration_and_transforms.project_workflow.schema import (
+    RESCUE_REQUEST_COLUMNS,
+    RESCUE_REQUESTS_SHEET,
+    RUN_EVALUATION_COLUMNS,
+    RUN_EVALUATIONS_SHEET,
+)
+from lsfm_data_processing.registration_and_transforms.project_workflow.workbook import (
+    read_evaluation_workbook,
+)
+
+
+def _strategies() -> tuple[RescueStrategy, ...]:
+    return (
+        RescueStrategy("lower_gradient", "Lower gradient step"),
+        RescueStrategy(
+            "masking",
+            "Masking",
+            SourceRunRequirement.REQUIRED,
+            RescueStrategyKind.MASKING,
+        ),
+    )
+
+
+def _request_plan(*requests: RescueRequest):
+    subjects = tuple(sorted({request.subject_id for request in requests}))
+    return resolve_rescue_requests(
+        requests,
+        strategies=_strategies(),
+        decisions=resolve_final_decisions((), subject_ids=subjects),
+        known_runs={subject: {"registration_runs/baseline"} for subject in subjects},
+    )
+
+
+def _write_nifti(
+    path: Path, data: np.ndarray, *, affine: np.ndarray | None = None
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if affine is None:
+        affine = np.diag((0.02, 0.02, 0.02, 1.0))
+    nib.save(nib.Nifti1Image(data, affine), path)
+
+
+def _write_registration_inputs(subject_dir: Path) -> Path:
+    run_dir = subject_dir / "registration_runs" / "baseline"
+    effective_shape = (20, 25, 30)
+    original_shape = (20, 30, 25)
+    lsp_affine = np.array(
+        (
+            (0.02, 0.0, 0.0, 0.0),
+            (0.0, 0.0, 0.02, 0.0),
+            (0.0, -0.02, 0.0, 0.0),
+            (0.0, 0.0, 0.0, 1.0),
+        )
+    )
+    labels = np.zeros(effective_shape, dtype=np.uint16)
+    labels[3:17, 4:21, 5:25] = 1
+    _write_nifti(
+        run_dir / "labels_WarpedSegmentation.nii.gz", labels, affine=lsp_affine
+    )
+    _write_nifti(
+        run_dir / "fixed_normalized_for_registration.nii.gz",
+        np.arange(np.prod(effective_shape), dtype=np.float32).reshape(effective_shape),
+        affine=lsp_affine,
+    )
+    _write_nifti(
+        run_dir / "ANTsPy_Warped.nii.gz",
+        np.ones(effective_shape, dtype=np.float32),
+        affine=lsp_affine,
+    )
+    original = np.arange(np.prod(original_shape), dtype=np.uint16).reshape(original_shape)
+    _write_nifti(subject_dir / "ch1_native_20um.nii.gz", original)
+    (run_dir / "registration_parameters.yaml").write_text(
+        "name: baseline\n", encoding="utf-8"
+    )
+    space_las = {
+        "space_name": "subject",
+        "orientation": "las",
+        "axis_labels": ["x", "y", "z"],
+        "units": "voxel",
+        "resolution_um": [20.0, 20.0, 20.0],
+        "shape": list(original_shape),
+    }
+    space_lsp = {
+        "space_name": "subject",
+        "orientation": "lsp",
+        "axis_labels": ["x", "z", "y"],
+        "units": "voxel",
+        "resolution_um": [20.0, 20.0, 20.0],
+        "shape": list(effective_shape),
+    }
+    manifest = {
+        "schema_version": 1,
+        "success": True,
+        "preset_name": "baseline",
+        "parameters_snapshot": "registration_parameters.yaml",
+        "orientation_alignment": "fixed_to_moving",
+        "fixed_image": {
+            "image_id": "subject",
+            "image": str(subject_dir / "ch1_native_20um.nii.gz"),
+            "space": space_las,
+            "normalized_image": "fixed_normalized_for_registration.nii.gz",
+            "segmentations": {},
+        },
+        "moving_image": {
+            "image_id": "template",
+            "image": "template.nii.gz",
+            "space": space_lsp,
+            "normalized_image": None,
+            "segmentations": {},
+        },
+        "effective_fixed_space": space_lsp,
+        "effective_moving_space": space_lsp,
+        "forward_transforms": [],
+        "inverse_transforms": [],
+        "transformed_segmentations": {
+            "labels": "labels_WarpedSegmentation.nii.gz"
+        },
+    }
+    (run_dir / "registration_result.json").write_text(
+        json.dumps(manifest), encoding="utf-8"
+    )
+    return run_dir
+
+
+def test_masking_waits_only_for_same_subject_rescues(tmp_path: Path) -> None:
+    _write_registration_inputs(tmp_path / "A")
+    plan = _request_plan(
+        RescueRequest("A", "Masking", source_run="registration_runs/baseline"),
+        RescueRequest("B", "Masking", source_run="registration_runs/baseline"),
+        RescueRequest("B", "Lower gradient step"),
+    )
+
+    masking = build_masking_plans(
+        plan,
+        subjects_root=tmp_path,
+        original_fixed_filename="ch1_native_20um.nii.gz",
+    )
+
+    by_subject = {item.subject_id: item for item in masking}
+    assert by_subject["A"].action == "create_review"
+    assert by_subject["B"].action == "blocked"
+    assert by_subject["B"].state is RescueRequestStatus.BLOCKED_PENDING_RESCUES
+
+
+def test_completed_mask_creates_separate_native_input_and_preserves_original(
+    tmp_path: Path,
+) -> None:
+    subject_dir = tmp_path / "A"
+    _write_registration_inputs(subject_dir)
+    plan = _request_plan(
+        RescueRequest("A", "Masking", source_run="registration_runs/baseline")
+    )
+    settings = MaskingSettings(review_resolution_um=50.0)
+    original_path = subject_dir / "ch1_native_20um.nii.gz"
+    original_bytes = original_path.read_bytes()
+
+    first = build_masking_plans(
+        plan,
+        subjects_root=tmp_path,
+        original_fixed_filename=original_path.name,
+        settings=settings,
+    )
+    apply_masking_plans(first, settings=settings)
+    awaiting = build_masking_plans(
+        plan,
+        subjects_root=tmp_path,
+        original_fixed_filename=original_path.name,
+        settings=settings,
+    )
+    assert awaiting[0].action == "await"
+    assert awaiting[0].review_warped_image.is_file()
+    for review_path in (
+        awaiting[0].draft_mask,
+        awaiting[0].review_fixed_image,
+        awaiting[0].review_warped_image,
+    ):
+        image = nib.load(review_path)
+        reference = nib.load(awaiting[0].review_fixed_image)
+        assert image.shape == reference.shape
+        np.testing.assert_allclose(image.affine, reference.affine)
+    shutil.copyfile(awaiting[0].draft_mask, awaiting[0].completed_mask)
+
+    completed = build_masking_plans(
+        plan,
+        subjects_root=tmp_path,
+        original_fixed_filename=original_path.name,
+        settings=settings,
+    )
+    assert completed[0].action == "apply_completed"
+    apply_masking_plans(completed, settings=settings)
+    ready = build_masking_plans(
+        plan,
+        subjects_root=tmp_path,
+        original_fixed_filename=original_path.name,
+        settings=settings,
+    )
+
+    assert ready[0].state is RescueRequestStatus.MASK_READY
+    assert ready[0].action == "ready"
+    assert ready[0].native_mask.is_file()
+    assert ready[0].masked_fixed_image == subject_dir / "ch1_native_20um_masked.nii.gz"
+    assert ready[0].masked_fixed_image.is_file()
+    assert nib.load(ready[0].masked_fixed_image).shape == nib.load(original_path).shape
+    assert original_path.read_bytes() == original_bytes
+
+
+def test_existing_review_folder_does_not_require_new_warped_reference(
+    tmp_path: Path,
+) -> None:
+    subject_dir = tmp_path / "A"
+    run_dir = _write_registration_inputs(subject_dir)
+    plan = _request_plan(
+        RescueRequest("A", "Masking", source_run="registration_runs/baseline")
+    )
+    first = build_masking_plans(
+        plan, subjects_root=tmp_path, original_fixed_filename="ch1_native_20um.nii.gz"
+    )
+    apply_masking_plans(first)
+    first[0].review_warped_image.unlink()
+    (run_dir / "ANTsPy_Warped.nii.gz").unlink()
+
+    existing = build_masking_plans(
+        plan, subjects_root=tmp_path, original_fixed_filename="ch1_native_20um.nii.gz"
+    )
+    assert existing[0].action == "await"
+    apply_masking_plans(existing)
+    assert not existing[0].review_warped_image.exists()
+    shutil.copyfile(existing[0].draft_mask, existing[0].completed_mask)
+    completed = build_masking_plans(
+        plan, subjects_root=tmp_path, original_fixed_filename="ch1_native_20um.nii.gz"
+    )
+    assert completed[0].action == "apply_completed"
+    apply_masking_plans(completed)
+    assert completed[0].masked_fixed_image.is_file()
+
+
+def test_new_review_requires_warped_template_on_fixed_grid(tmp_path: Path) -> None:
+    subject_dir = tmp_path / "A"
+    run_dir = _write_registration_inputs(subject_dir)
+    _write_nifti(
+        run_dir / "ANTsPy_Warped.nii.gz",
+        np.ones((10, 10, 10), dtype=np.float32),
+    )
+    plan = _request_plan(
+        RescueRequest("A", "Masking", source_run="registration_runs/baseline")
+    )
+    with np.testing.assert_raises_regex(ValueError, "not on the same grid"):
+        build_masking_plans(
+            plan,
+            subjects_root=tmp_path,
+            original_fixed_filename="ch1_native_20um.nii.gz",
+        )
+    assert not (subject_dir / "registration_masks").exists()
+
+
+def test_completed_mask_rejects_registration_grid_as_native_input(tmp_path: Path) -> None:
+    subject_dir = tmp_path / "A"
+    _write_registration_inputs(subject_dir)
+    plan = _request_plan(
+        RescueRequest("A", "Masking", source_run="registration_runs/baseline")
+    )
+    first = build_masking_plans(
+        plan, subjects_root=tmp_path, original_fixed_filename="ch1_native_20um.nii.gz"
+    )
+    apply_masking_plans(first)
+    shutil.copyfile(first[0].draft_mask, first[0].completed_mask)
+    wrong_grid = build_masking_plans(
+        plan,
+        subjects_root=tmp_path,
+        original_fixed_filename="registration_runs/baseline/fixed_normalized_for_registration.nii.gz",
+    )
+
+    with np.testing.assert_raises_regex(ValueError, "not on the declared native fixed-image grid"):
+        apply_masking_plans(wrong_grid)
+    assert not wrong_grid[0].native_mask.exists()
+
+
+def _write_masking_workbook(
+    path: Path,
+    *,
+    selected: bool = False,
+) -> str:
+    masking_run = "registration_runs/masking_rescue/from_baseline"
+    workbook = Workbook()
+    runs = workbook.active
+    runs.title = RUN_EVALUATIONS_SHEET
+    runs.append(RUN_EVALUATION_COLUMNS)
+    runs.append(
+        (
+            "A",
+            masking_run,
+            "masking",
+            "success",
+            "minor_localized",
+            "reviewed",
+            "yes" if selected else "",
+            "Evaluator",
+            None,
+        )
+    )
+    requests = workbook.create_sheet(RESCUE_REQUESTS_SHEET)
+    requests.append(RESCUE_REQUEST_COLUMNS)
+    requests.append(
+        (
+            "A",
+            "masking",
+            "registration_runs/baseline",
+            "",
+            None,
+            None,
+            None,
+            "manual correction",
+            "completed",
+        )
+    )
+    workbook.save(path)
+    workbook.close()
+    return masking_run
+
+
+def test_revised_mask_replacement_preserves_review_inputs_and_resets_workbook(
+    tmp_path: Path,
+) -> None:
+    subject_dir = tmp_path / "subjects" / "A"
+    _write_registration_inputs(subject_dir)
+    request_plan = _request_plan(
+        RescueRequest("A", "Masking", source_run="registration_runs/baseline")
+    )
+    review = build_masking_plans(
+        request_plan,
+        subjects_root=tmp_path / "subjects",
+        original_fixed_filename="ch1_native_20um.nii.gz",
+    )
+    apply_masking_plans(review)
+    shutil.copyfile(review[0].draft_mask, review[0].completed_mask)
+    completed = build_masking_plans(
+        request_plan,
+        subjects_root=tmp_path / "subjects",
+        original_fixed_filename="ch1_native_20um.nii.gz",
+    )
+    assert "rescue: eligible after applying" in summarize_masking_plans(completed)
+    assert masking_plans_ready_for_rescue(
+        completed, include_pending_application=True
+    ) == completed
+    assert masking_plans_ready_for_rescue(completed) == ()
+    apply_masking_plans(completed)
+
+    workbook_path = tmp_path / "registration_evaluation.xlsx"
+    masking_run = _write_masking_workbook(workbook_path)
+    masking_run_dir = subject_dir / Path(masking_run)
+    masking_run_dir.mkdir(parents=True)
+    (masking_run_dir / "registration_result.json").write_text("{}", encoding="utf-8")
+    preserved = {
+        path: path.read_bytes()
+        for path in (
+            completed[0].draft_mask,
+            completed[0].review_fixed_image,
+            completed[0].review_warped_image,
+            completed[0].completed_mask,
+        )
+    }
+
+    replacement = build_revised_mask_replacement_plan(
+        workbook_path=workbook_path,
+        subjects_root=tmp_path / "subjects",
+        subject_id="A",
+        source_run="registration_runs/baseline",
+        original_fixed_filename="ch1_native_20um.nii.gz",
+        strategies=_strategies(),
+    )
+    with pytest.raises(ValueError, match="Confirmation must be exactly"):
+        apply_revised_mask_replacement_plan(replacement, confirmation="yes")
+    apply_revised_mask_replacement_plan(
+        replacement,
+        confirmation="REPLACE MASK RESCUE A",
+    )
+
+    assert not replacement.directories_to_remove[0].exists()
+    assert not completed[0].native_mask.exists()
+    assert not completed[0].masked_fixed_image.exists()
+    assert not completed[0].provenance_path.exists()
+    assert all(path.read_bytes() == content for path, content in preserved.items())
+    workbook = read_evaluation_workbook(workbook_path)
+    assert not workbook.run_evaluations
+    assert workbook.rescue_requests[0].status == ""
+    replanned = build_masking_plans(
+        request_plan,
+        subjects_root=tmp_path / "subjects",
+        original_fixed_filename="ch1_native_20um.nii.gz",
+    )
+    assert replanned[0].action == "apply_completed"
+
+
+def test_revised_mask_replacement_refuses_selected_run(tmp_path: Path) -> None:
+    subject_dir = tmp_path / "subjects" / "A"
+    _write_registration_inputs(subject_dir)
+    workbook_path = tmp_path / "registration_evaluation.xlsx"
+    masking_run = _write_masking_workbook(workbook_path, selected=True)
+    (subject_dir / Path(masking_run)).mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="Selected masking run cannot be replaced"):
+        build_revised_mask_replacement_plan(
+            workbook_path=workbook_path,
+            subjects_root=tmp_path / "subjects",
+            subject_id="A",
+            source_run="registration_runs/baseline",
+            original_fixed_filename="ch1_native_20um.nii.gz",
+            strategies=_strategies(),
+        )

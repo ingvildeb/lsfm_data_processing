@@ -2,6 +2,57 @@
 
 Utilities and pipelines for LSFM preprocessing, chunk generation, atlas alignment support, and dataset management.
 
+## Registration setup
+
+Registration and transform workflows are built on
+[`atlasspace`](https://github.com/ingvildeb/atlasspace). Use a dedicated environment:
+
+```powershell
+conda create --name lsfm_registration python=3.11
+conda activate lsfm_registration
+```
+
+For reproducible registration use, install the tagged package with its registration extra:
+
+```powershell
+python -m pip install --upgrade pip
+python -m pip install "lsfm-data-processing[registration] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.3.0"
+```
+
+For development from a local checkout, use an editable install instead:
+
+```powershell
+git clone https://github.com/ingvildeb/lsfm_data_processing.git
+cd lsfm_data_processing
+python -m pip install -e ".[registration]"
+```
+
+Verify the exact installed registration runtime:
+
+```powershell
+python -m lsfm_data_processing.registration_and_transforms.runtime_contract
+```
+
+For registration config setup, see `docs/registration_config_setup.md`. For HPC launch instructions, see
+`docs/registration_hpc_setup.md`. For custom ANTs/ANTsPy parameter presets, see `docs/registration_presets.md`.
+The shared project-workflow behavior and its acceptance-test matrix are defined in
+`docs/registration_workflow_contract.md`. Temporary migration compatibility is
+tracked in `docs/registration_workflow_migration.md`; implemented behavior and
+future follow-ups are tracked in `docs/registration_workflow_followups.md`. The
+finite audit for retiring historical compatibility is defined in
+`docs/registration_compatibility_retirement.md`.
+
+Reusable project orchestration models, evaluation-workbook adapters,
+mask-assisted rescue handling, and resumable registration distribution live in
+`lsfm_data_processing.registration_and_transforms.project_workflow`. The canonical
+workbook keeps run-level decisions in `Run evaluations` and supports multiple,
+independently synchronized requests per subject in `Rescue requests`. Existing
+workbooks with a run-level `Proposed rescue` column are migrated during the first
+plan/apply synchronization while unrelated workbook sheets are preserved.
+Distribution installs the selected run canonically, archives all alternatives,
+strictly validates existing files, and marks a batch subject `_transferred` only
+after copies and project-specific finalization have completed.
+
 ## Repository layout
 
 - `preprocess_for_cellpose/`: pre-process data for segmentation and build Cellpose training datasets from stitched TIFF images

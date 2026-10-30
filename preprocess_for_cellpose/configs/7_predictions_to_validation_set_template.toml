@@ -5,7 +5,11 @@ subject_parent_dirs = [
   'PATH/TO/SUBJECT_PARENT_2',
 ]
 
-# Optional folder containing pre-selected MIP TIFFs.
+# Optional folder containing pre-selected image TIFFs and their matching
+# prediction TIFFs in the same folder.
+# Expected filenames:
+# - image: <sample_id>_MIP_....tif
+# - prediction: masks_<sample_id>_MIP_....tif
 # Leave as '' to use automatic per-subject section selection.
 preselected_images_dir = ''
 

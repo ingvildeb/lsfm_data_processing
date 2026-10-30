@@ -1,13 +1,15 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "lsfm-data-processing"
-version = "0.1.0"
+version = "0.3.2"
 description = "Reusable utilities and scripts for LSFM data processing workflows"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 dependencies = [
   "numpy",
   "opencv-python",
@@ -16,5 +18,18 @@ dependencies = [
   "nibabel"
 ]
 
+[project.optional-dependencies]
+registration = [
+  "atlasspace @ git+https://github.com/ingvildeb/atlasspace.git@v0.2.3",
+  "openpyxl>=3.1",
+  "pyyaml>=6"
+]
+
 [tool.setuptools.packages.find]
 include = ["lsfm_data_processing*"]
+
+[tool.setuptools.package-data]
+"lsfm_data_processing.registration_and_transforms.batch_registration.hpc" = ["*.sh"]
+"lsfm_data_processing.registration_and_transforms.batch_registration.config_templates" = ["*.toml"]
+"lsfm_data_processing.registration_and_transforms.sweep_registration.hpc" = ["*.sh"]
+"lsfm_data_processing.registration_and_transforms.sweep_registration.config_templates" = ["*.toml"]

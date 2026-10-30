@@ -1,0 +1,9 @@
+-e .
+numpy
+opencv-python
+tifffile
+imagecodecs
+pillow
+nibabel
+scipy
+matplotlib

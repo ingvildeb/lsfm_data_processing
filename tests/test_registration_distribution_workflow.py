@@ -1,0 +1,462 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from lsfm_data_processing.registration_and_transforms.project_workflow import distribution
+from lsfm_data_processing.registration_and_transforms.project_workflow.distribution import (
+    IN_PROGRESS_METADATA_FILENAME,
+    PARTIAL_COPY_SUFFIX,
+    RegistrationCopyOperation,
+    apply_registration_distribution_plan,
+    build_registration_distribution_plan,
+    copy_and_verify,
+)
+from lsfm_data_processing.registration_and_transforms.project_workflow.decisions import (
+    resolve_final_decisions,
+)
+from lsfm_data_processing.registration_and_transforms.project_workflow.models import RunEvaluation
+
+
+def _run(
+    subject_dir: Path,
+    relative: str,
+    *,
+    success: bool,
+    payload: bytes,
+) -> None:
+    run_dir = subject_dir / relative
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "registration_result.json").write_text(
+        json.dumps({"success": success, "preset_name": relative}),
+        encoding="utf-8",
+    )
+    (run_dir / "output.nii.gz").write_bytes(payload)
+
+
+def _decision(
+    subject_id: str,
+    run_path: str,
+    *,
+    excluded: bool = False,
+):
+    evaluation = RunEvaluation(
+        subject_id,
+        run_path,
+        preset_name="preset",
+        manifest_status="failed" if excluded else "success",
+        result="exclude" if excluded else "excellent",
+        selected=True,
+        evaluator="Reviewer",
+    )
+    return resolve_final_decisions((evaluation,))[subject_id]
+
+
+def test_distribution_installs_selection_and_archives_every_other_run(
+    tmp_path: Path,
+) -> None:
+    subjects = tmp_path / "subjects"
+    selected_source = subjects / "A"
+    excluded_source = subjects / "B"
+    _run(
+        selected_source,
+        "registration_runs/baseline",
+        success=True,
+        payload=b"selected",
+    )
+    _run(
+        selected_source,
+        "registration_runs/rescue/gs0p01",
+        success=True,
+        payload=b"alternative",
+    )
+    _run(
+        excluded_source,
+        "registration_runs/baseline",
+        success=False,
+        payload=b"failed-but-archived",
+    )
+    destination_parent = tmp_path / "sessions"
+    destination_parent.mkdir()
+    destinations = {
+        "A": destination_parent / "A" / "_analysis",
+        "B": destination_parent / "B" / "_analysis",
+    }
+    for root in destinations.values():
+        root.parent.mkdir()
+    plan = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots=destinations,
+        decisions={
+            "A": _decision("A", "registration_runs/baseline"),
+            "B": _decision("B", "registration_runs/baseline", excluded=True),
+        },
+    )
+
+    apply_registration_distribution_plan(
+        plan, confirmation=plan.required_confirmation
+    )
+
+    assert (
+        destinations["A"] / "registration" / "output.nii.gz"
+    ).read_bytes() == b"selected"
+    assert (
+        destinations["A"]
+        / "registration_runs"
+        / "rescue"
+        / "gs0p01"
+        / "output.nii.gz"
+    ).read_bytes() == b"alternative"
+    assert not (destinations["B"] / "registration").exists()
+    assert (
+        destinations["B"] / "registration_runs" / "baseline" / "output.nii.gz"
+    ).read_bytes() == b"failed-but-archived"
+    assert (subjects / "A_transferred").is_dir()
+    assert (subjects / "B_transferred").is_dir()
+
+
+def test_failed_finalizer_leaves_subject_resumable(tmp_path: Path) -> None:
+    subjects = tmp_path / "subjects"
+    source = subjects / "A"
+    _run(
+        source,
+        "registration_runs/baseline",
+        success=True,
+        payload=b"selected",
+    )
+    session = tmp_path / "session"
+    session.mkdir()
+    destination = session / "_analysis"
+    decision = _decision("A", "registration_runs/baseline")
+    first = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+
+    def fail_after_copy(_subject) -> None:
+        raise RuntimeError("postprocessing failed")
+
+    with pytest.raises(RuntimeError, match="postprocessing failed"):
+        apply_registration_distribution_plan(
+            first,
+            confirmation=first.required_confirmation,
+            finalize_subject=fail_after_copy,
+        )
+
+    progress = destination / "registration" / IN_PROGRESS_METADATA_FILENAME
+    assert progress.is_file()
+    assert source.is_dir()
+    resumed = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+    assert all(item.state == "already_present" for item in resumed.operations)
+    apply_registration_distribution_plan(
+        resumed, confirmation=resumed.required_confirmation
+    )
+    assert not progress.exists()
+    assert (subjects / "A_transferred").is_dir()
+
+
+def test_interrupted_copy_uses_temporary_file_and_resumes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    subjects = tmp_path / "subjects"
+    source = subjects / "A"
+    _run(
+        source,
+        "registration_runs/baseline",
+        success=True,
+        payload=b"selected-output",
+    )
+    session = tmp_path / "session"
+    session.mkdir()
+    destination = session / "_analysis"
+    decision = _decision("A", "registration_runs/baseline")
+    first = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+    interrupted = first.operations[0]
+    original_copy = distribution.shutil.copyfileobj
+
+    def fail_mid_copy(source_handle, destination_handle) -> None:
+        destination_handle.write(source_handle.read(3))
+        raise OSError("simulated network interruption")
+
+    monkeypatch.setattr(distribution.shutil, "copyfileobj", fail_mid_copy)
+    with pytest.raises(OSError, match="network interruption"):
+        apply_registration_distribution_plan(
+            first, confirmation=first.required_confirmation
+        )
+
+    partial = interrupted.destination.with_name(
+        f".{interrupted.destination.name}{PARTIAL_COPY_SUFFIX}"
+    )
+    assert partial.is_file()
+    assert not interrupted.destination.exists()
+    assert (
+        destination / "registration" / IN_PROGRESS_METADATA_FILENAME
+    ).is_file()
+    assert source.is_dir()
+
+    monkeypatch.setattr(distribution.shutil, "copyfileobj", original_copy)
+    resumed = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+    apply_registration_distribution_plan(
+        resumed, confirmation=resumed.required_confirmation
+    )
+
+    assert not partial.exists()
+    assert interrupted.destination.is_file()
+    assert not (
+        destination / "registration" / IN_PROGRESS_METADATA_FILENAME
+    ).exists()
+    assert (subjects / "A_transferred").is_dir()
+
+
+def test_excluded_subject_progress_marker_is_resumable(tmp_path: Path) -> None:
+    subjects = tmp_path / "subjects"
+    source = subjects / "A"
+    _run(
+        source,
+        "registration_runs/baseline",
+        success=False,
+        payload=b"failed-but-archived",
+    )
+    session = tmp_path / "session"
+    session.mkdir()
+    destination = session / "_analysis"
+    decision = _decision(
+        "A", "registration_runs/baseline", excluded=True
+    )
+    first = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+
+    def fail_after_copy(_subject) -> None:
+        raise RuntimeError("postprocessing failed")
+
+    with pytest.raises(RuntimeError, match="postprocessing failed"):
+        apply_registration_distribution_plan(
+            first,
+            confirmation=first.required_confirmation,
+            finalize_subject=fail_after_copy,
+        )
+
+    progress = destination / "registration_runs" / IN_PROGRESS_METADATA_FILENAME
+    assert progress.is_file()
+    assert source.is_dir()
+    resumed = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+    assert all(item.state == "already_present" for item in resumed.operations)
+    apply_registration_distribution_plan(
+        resumed, confirmation=resumed.required_confirmation
+    )
+    assert not progress.exists()
+    assert (subjects / "A_transferred").is_dir()
+
+
+def test_partial_progress_marker_is_not_mistaken_for_legacy_registration(
+    tmp_path: Path,
+) -> None:
+    subjects = tmp_path / "subjects"
+    source = subjects / "A"
+    _run(
+        source,
+        "registration_runs/baseline",
+        success=True,
+        payload=b"selected",
+    )
+    session = tmp_path / "session"
+    session.mkdir()
+    destination = session / "_analysis"
+    decision = _decision("A", "registration_runs/baseline")
+    initial = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+    canonical = destination / "registration"
+    canonical.mkdir(parents=True)
+    progress = canonical / IN_PROGRESS_METADATA_FILENAME
+    partial = progress.with_name(f".{progress.name}{PARTIAL_COPY_SUFFIX}")
+    partial.write_text("{", encoding="utf-8")
+
+    resumed = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+
+    assert resumed.subjects[0].legacy_canonical_archive is None
+    apply_registration_distribution_plan(
+        resumed, confirmation=initial.required_confirmation
+    )
+    assert not partial.exists()
+    assert (subjects / "A_transferred").is_dir()
+
+
+def test_verified_temporary_copy_is_promoted_without_recopying(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.nii.gz"
+    destination = tmp_path / "result" / "output.nii.gz"
+    source.write_bytes(b"complete payload")
+    destination.parent.mkdir()
+    partial = destination.with_name(f".{destination.name}{PARTIAL_COPY_SUFFIX}")
+    partial.write_bytes(source.read_bytes())
+
+    def unexpected_copy(*_args, **_kwargs) -> None:
+        raise AssertionError("verified temporary file should not be recopied")
+
+    monkeypatch.setattr(distribution.shutil, "copyfileobj", unexpected_copy)
+    copy_and_verify(RegistrationCopyOperation(source, destination, "copy"))
+
+    assert destination.read_bytes() == source.read_bytes()
+    assert not partial.exists()
+
+
+def test_partial_copy_name_stays_below_windows_limit_for_long_destination() -> None:
+    destination = Path(
+        "Z:/LSFM/2026/2026_02/2026_02_04/"
+        "20260204_11_58_48_EH_IEB0186_F_P2_Aldh1_LAS_488GFP_561Bg_640Sytox_"
+        "4x_5umstep_Destripe_DONE/_spatialsignal/registration_runs/"
+        "lower_gradient_step_rescue/from_baseline_gs0p01/"
+        "ANTsPy_0GenericAffine.mat"
+    )
+
+    temporary = distribution._partial_copy_path(destination)
+    legacy_temporary = distribution._legacy_partial_copy_path(destination)
+
+    assert len(str(destination)) < 260
+    assert len(str(temporary)) < 260
+    assert len(str(legacy_temporary)) >= 260
+
+
+def test_verified_legacy_temporary_copy_is_promoted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.nii.gz"
+    destination = tmp_path / "result" / "output.nii.gz"
+    source.write_bytes(b"complete legacy payload")
+    destination.parent.mkdir()
+    legacy_partial = distribution._legacy_partial_copy_path(destination)
+    legacy_partial.write_bytes(source.read_bytes())
+
+    def unexpected_copy(*_args, **_kwargs) -> None:
+        raise AssertionError("verified legacy temporary file should not be recopied")
+
+    monkeypatch.setattr(distribution.shutil, "copyfileobj", unexpected_copy)
+    copy_and_verify(RegistrationCopyOperation(source, destination, "copy"))
+
+    assert destination.read_bytes() == source.read_bytes()
+    assert not legacy_partial.exists()
+    assert not distribution._partial_copy_path(destination).exists()
+
+
+def test_differing_final_destination_is_a_conflict(tmp_path: Path) -> None:
+    subjects = tmp_path / "subjects"
+    source = subjects / "A"
+    _run(
+        source,
+        "registration_runs/baseline",
+        success=True,
+        payload=b"selected",
+    )
+    session = tmp_path / "session"
+    session.mkdir()
+    destination = session / "_analysis"
+    decision = _decision("A", "registration_runs/baseline")
+    initial = build_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": decision},
+    )
+    conflicting = destination / "registration" / "output.nii.gz"
+    conflicting.parent.mkdir(parents=True)
+    conflicting.write_bytes(b"different")
+    progress = conflicting.parent / IN_PROGRESS_METADATA_FILENAME
+    progress.write_text(
+        json.dumps(initial.subjects[0].decision_metadata, indent=2, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="exists but differs"):
+        build_registration_distribution_plan(
+            batch_id="batch001",
+            subjects_root=subjects,
+            destination_roots={"A": destination},
+            decisions={"A": decision},
+        )
+
+
+def test_active_and_transferred_directories_are_a_conflict(
+    tmp_path: Path,
+) -> None:
+    subjects = tmp_path / "subjects"
+    _run(
+        subjects / "A",
+        "registration_runs/baseline",
+        success=True,
+        payload=b"recreated",
+    )
+    (subjects / "A_transferred").mkdir()
+    session = tmp_path / "session"
+    session.mkdir()
+
+    with pytest.raises(ValueError, match="both active and transferred"):
+        build_registration_distribution_plan(
+            batch_id="batch001",
+            subjects_root=subjects,
+            destination_roots={"A": session / "_analysis"},
+            decisions={"A": _decision("A", "registration_runs/baseline")},
+        )
+
+
+def test_unmanifested_run_files_block_distribution(tmp_path: Path) -> None:
+    subjects = tmp_path / "subjects"
+    source = subjects / "A"
+    _run(
+        source,
+        "registration_runs/baseline",
+        success=True,
+        payload=b"selected",
+    )
+    incomplete = source / "registration_runs" / "rescue" / "incomplete"
+    incomplete.mkdir(parents=True)
+    (incomplete / "partial_output.nii.gz").write_bytes(b"partial")
+    session = tmp_path / "session"
+    session.mkdir()
+
+    with pytest.raises(RuntimeError, match="outside a manifested run"):
+        build_registration_distribution_plan(
+            batch_id="batch001",
+            subjects_root=subjects,
+            destination_roots={"A": session / "_analysis"},
+            decisions={"A": _decision("A", "registration_runs/baseline")},
+        )
