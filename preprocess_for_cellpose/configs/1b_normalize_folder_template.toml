@@ -1,0 +1,12 @@
+input_dir = 'C:\Users\Ingvild\Documents\st_workshop_sections\4'
+output_dir = 'C:\Users\Ingvild\Documents\st_workshop_sections\4\registration'             # optional; leave empty to create a named sibling folder
+
+do_normalization = true     # set to false to resize/copy images without normalization
+min_val = 0                 # percentile clip min
+max_val = 99.99             # percentile clip max
+resize_scale_factor = 0.1   # set to 1.0 for no resizing; e.g. 0.5 halves width and height
+flip_horizontal = false     # set to true to mirror images left-to-right
+flip_vertical = false       # set to true to flip images top-to-bottom
+convert_to_8bit = true      # set to true to save output images as 8-bit
+use_lzw_compression = true  # set to true to save TIFF outputs with LZW compression
+output_format = 'png'       # choose 'tif' or 'png'
