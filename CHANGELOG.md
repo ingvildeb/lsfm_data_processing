@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-03
+
+### Added
+
+- Reusable cell-quantification contracts for canonical paths, artifact sets,
+  output policies, exact-grid validation, lineage validation, configuration,
+  and stage planning.
+- Developmental hemisphere-source creation and resumable backfill planning for
+  existing registration results.
+- Acceptance tests covering the shared cell-quantification and hemisphere-map
+  contracts used by project repositories.
+
 ## [0.3.2] - 2026-10-22
 
 ### Fixed

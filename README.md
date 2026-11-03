@@ -2,6 +2,14 @@
 
 Utilities and pipelines for LSFM preprocessing, chunk generation, atlas alignment support, and dataset management.
 
+## Cell quantification workflow
+
+The shared contract for point-cloud extraction, deduplication, colocalization,
+raw hemisphere-aware quantification, and exact-grid count maps is defined in
+`docs/cell_quantification_workflow_contract.md`. The reusable layer will live in
+`lsfm_data_processing.cell_quantification.project_workflow`; its first pilot is
+Glia Mapping.
+
 ## Registration setup
 
 Registration and transform workflows are built on
