@@ -8,6 +8,19 @@ requirements belong in
 
 ## Post-Release Rollout
 
+### Release Selected-Run Hemisphere Distribution
+
+The shared composite distribution plan and its acceptance tests are implemented
+for `v0.4.1`. Glia Mapping has validated it against the remaining
+selected subject in batch011: only the selected run was enriched, all four
+alternatives were archived, and the destination passed validation. Publish the
+`v0.4.1` release and update the Glia pin before routine use; the live test used
+a temporary `PYTHONPATH` override and did not install an editable package.
+
+After the release is pinned, migrate SING's equivalent project-local
+orchestration to the shared composite API. Chandelier Cell and Triple
+Transgenic remain separate targeted cleanup projects.
+
 ### Complete Tagged-Release Validation
 
 All four project adapters and local environments are pinned to `v0.3.0`; the

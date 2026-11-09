@@ -139,6 +139,28 @@ def test_backfill_plan_reuses_valid_map_and_plans_missing_transform(
     assert plan.can_apply
 
 
+def test_valid_existing_output_retains_recorded_hpc_source_provenance(
+    tmp_path: Path,
+) -> None:
+    local_source = tmp_path / "local_hemispheres.nii.gz"
+    source_data = np.ones(_space().shape, dtype=np.uint8)
+    source_data[3:, :, :] = 2
+    _write(local_source, source_data, _space(), dtype=np.uint8)
+    registration = tmp_path / "registration"
+    recorded_hpc_source = Path(
+        "/gpfs/Labs/Kim/shared_registration/templates/H_P6.nii.gz"
+    )
+    _registration(registration, recorded_hpc_source, include_hemisphere=True)
+
+    plan = build_hemisphere_backfill_plan(
+        (registration,), {"template_p6": local_source}
+    )
+
+    assert plan.items[0].action is HemisphereAction.REUSE
+    assert "recorded source provenance" in plan.items[0].reason
+    assert plan.can_apply
+
+
 def test_unknown_template_stops_complete_backfill_before_mutation(
     tmp_path: Path,
 ) -> None:

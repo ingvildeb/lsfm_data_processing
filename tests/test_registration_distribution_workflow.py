@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -10,7 +11,9 @@ from lsfm_data_processing.registration_and_transforms.project_workflow.distribut
     IN_PROGRESS_METADATA_FILENAME,
     PARTIAL_COPY_SUFFIX,
     RegistrationCopyOperation,
+    apply_hemisphere_registration_distribution_plan,
     apply_registration_distribution_plan,
+    build_hemisphere_registration_distribution_plan,
     build_registration_distribution_plan,
     copy_and_verify,
 )
@@ -116,6 +119,107 @@ def test_distribution_installs_selection_and_archives_every_other_run(
     ).read_bytes() == b"failed-but-archived"
     assert (subjects / "A_transferred").is_dir()
     assert (subjects / "B_transferred").is_dir()
+
+
+def test_hemisphere_distribution_enriches_only_selected_run_then_refreshes_copy_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    subjects = tmp_path / "subjects"
+    source = subjects / "A"
+    _run(
+        source,
+        "registration_runs/baseline",
+        success=True,
+        payload=b"selected",
+    )
+    _run(
+        source,
+        "registration_runs/rescue/alternative",
+        success=True,
+        payload=b"alternative",
+    )
+    destination = tmp_path / "session" / "_analysis"
+    destination.parent.mkdir()
+
+    def fake_build(registration_dirs, hemisphere_sources):
+        assert set(hemisphere_sources) == {"template"}
+        return SimpleNamespace(
+            items=tuple(
+                SimpleNamespace(
+                    registration_dir=Path(path),
+                    action=SimpleNamespace(value="transform"),
+                    reason="hemisphere transform is absent",
+                )
+                for path in registration_dirs
+            )
+        )
+
+    def fake_apply(plan):
+        for item in plan.items:
+            hemisphere = item.registration_dir / "hemispheres_WarpedSegmentation.nii.gz"
+            hemisphere.write_bytes(b"selected hemisphere")
+            manifest_path = item.registration_dir / "registration_result.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["hemisphere_enriched"] = True
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "lsfm_data_processing.registration_and_transforms.project_workflow.hemisphere_backfill.build_hemisphere_backfill_plan",
+        fake_build,
+    )
+    monkeypatch.setattr(
+        "lsfm_data_processing.registration_and_transforms.project_workflow.hemisphere_backfill.apply_hemisphere_backfill_plan",
+        fake_apply,
+    )
+    plan = build_hemisphere_registration_distribution_plan(
+        batch_id="batch001",
+        subjects_root=subjects,
+        destination_roots={"A": destination},
+        decisions={"A": _decision("A", "registration_runs/baseline")},
+        hemisphere_sources={"template": tmp_path / "hemisphere.nii.gz"},
+    )
+
+    assert [item.registration_dir for item in plan.hemisphere_plan.items] == [
+        source / "registration_runs" / "baseline"
+    ]
+    with pytest.raises(ValueError, match="Required confirmation"):
+        apply_hemisphere_registration_distribution_plan(
+            plan, confirmation="WRONG CONFIRMATION"
+        )
+    assert not (
+        source
+        / "registration_runs"
+        / "baseline"
+        / "hemispheres_WarpedSegmentation.nii.gz"
+    ).exists()
+    apply_hemisphere_registration_distribution_plan(
+        plan, confirmation=plan.required_confirmation
+    )
+
+    assert (
+        destination / "registration" / "hemispheres_WarpedSegmentation.nii.gz"
+    ).read_bytes() == b"selected hemisphere"
+    installed_manifest = json.loads(
+        (destination / "registration" / "registration_result.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert installed_manifest["hemisphere_enriched"] is True
+    assert (
+        destination
+        / "registration_runs"
+        / "rescue"
+        / "alternative"
+        / "output.nii.gz"
+    ).read_bytes() == b"alternative"
+    assert not (
+        destination
+        / "registration_runs"
+        / "rescue"
+        / "alternative"
+        / "hemispheres_WarpedSegmentation.nii.gz"
+    ).exists()
+    assert (subjects / "A_transferred").is_dir()
 
 
 def test_failed_finalizer_leaves_subject_resumable(tmp_path: Path) -> None:

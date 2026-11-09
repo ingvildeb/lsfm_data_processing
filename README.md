@@ -59,7 +59,11 @@ workbooks with a run-level `Proposed rescue` column are migrated during the firs
 plan/apply synchronization while unrelated workbook sheets are preserved.
 Distribution installs the selected run canonically, archives all alternatives,
 strictly validates existing files, and marks a batch subject `_transferred` only
-after copies and project-specific finalization have completed.
+after copies and project-specific finalization have completed. Projects that
+require hemisphere maps can use the shared composite distribution plan: it
+enriches only the selected staging run, rebuilds the byte-copy plan, and then
+performs the same restart-safe distribution. Rejected alternatives are archived
+without newly transforming hemisphere maps.
 
 ## Repository layout
 

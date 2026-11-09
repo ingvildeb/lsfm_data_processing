@@ -246,15 +246,9 @@ def build_hemisphere_backfill_plan(
             if output_value is not None
             else registration_dir / f"{hemisphere_name}_WarpedSegmentation.nii.gz"
         )
-        if recorded_source is not None and not _same_path(recorded_source, source):
-            items.append(
-                HemisphereBackfillItem(
-                    registration_dir, image_id, source, annotation, output,
-                    HemisphereAction.STOP,
-                    f"manifest associates {hemisphere_name!r} with another source",
-                )
-            )
-            continue
+        source_conflict = recorded_source is not None and not _same_path(
+            recorded_source, source
+        )
         if output_value is not None and output.is_file():
             try:
                 validate_hemisphere_nifti(
@@ -263,23 +257,38 @@ def build_hemisphere_backfill_plan(
             except Exception as exc:
                 action = (
                     HemisphereAction.TRANSFORM
-                    if repair_invalid
+                    if repair_invalid and not source_conflict
                     else HemisphereAction.STOP
                 )
                 items.append(
                     HemisphereBackfillItem(
                         registration_dir, image_id, source, annotation, output, action,
                         f"transformed hemisphere map is invalid: {exc}",
-                        replace=repair_invalid,
+                        replace=repair_invalid and not source_conflict,
                     )
                 )
             else:
                 items.append(
                     HemisphereBackfillItem(
                         registration_dir, image_id, source, annotation, output,
-                        HemisphereAction.REUSE, "transformed hemisphere map is valid",
+                        HemisphereAction.REUSE,
+                        (
+                            "transformed hemisphere map is valid and retains its "
+                            "recorded source provenance"
+                            if source_conflict
+                            else "transformed hemisphere map is valid"
+                        ),
                     )
                 )
+            continue
+        if source_conflict:
+            items.append(
+                HemisphereBackfillItem(
+                    registration_dir, image_id, source, annotation, output,
+                    HemisphereAction.STOP,
+                    f"manifest associates {hemisphere_name!r} with another source",
+                )
+            )
             continue
         items.append(
             HemisphereBackfillItem(

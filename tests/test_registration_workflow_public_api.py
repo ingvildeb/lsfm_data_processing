@@ -7,6 +7,7 @@ EXPECTED_PUBLIC_API = {
     "apply_evaluation_workbook_plan",
     "apply_hemisphere_backfill_plan",
     "apply_hemisphere_source_plan",
+    "apply_hemisphere_registration_distribution_plan",
     "apply_masking_plans",
     "apply_revised_mask_replacement_plan",
     "apply_native_preparation_plan",
@@ -14,6 +15,7 @@ EXPECTED_PUBLIC_API = {
     "apply_rescue_generation_plan",
     "build_evaluation_workbook_plan",
     "build_hemisphere_backfill_plan",
+    "build_hemisphere_registration_distribution_plan",
     "build_masking_plans",
     "build_revised_mask_replacement_plan",
     "build_native_preparation_plan",
@@ -25,6 +27,7 @@ EXPECTED_PUBLIC_API = {
     "plan_rescue_generation",
     "resolve_final_decisions",
     "resolve_rescue_requests",
+    "summarize_hemisphere_registration_distribution_plan",
 }
 
 

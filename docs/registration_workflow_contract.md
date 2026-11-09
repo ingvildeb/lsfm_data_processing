@@ -296,6 +296,11 @@ Rules:
     stops on differing files.
 11. A source subject folder receives `_transferred` only after all planned
     files and decision metadata have been verified.
+12. When hemisphere enrichment is enabled, it applies only to the final
+    selected registration in local batch staging. The distribution plan is
+    rebuilt after enrichment so its byte-level copy inventory includes the
+    transformed map and updated manifest. Rejected alternatives are archived
+    without newly running the hemisphere transform.
 
 ## 6. Post-Registration Segmentation Transformation
 
@@ -486,6 +491,11 @@ preflight with a difference report. Additional subjects require a new batch.
 | Distribution has not fully verified a subject | Do not append `_transferred`. |
 | Distribution finishes and verifies metadata | Append `_transferred` last. |
 | ANTs job terminates midway | Require an explicit retry/attempt; do not claim continuation. |
+| A selected staging run lacks hemispheres | Transform and validate it, rebuild the copy plan, then distribute it. |
+| A rejected alternative lacks hemispheres | Archive it unchanged; do not spend compute enriching it. |
+| A selected run already has a valid hemisphere output from an HPC source path | Reuse it and retain the manifest's recorded source provenance. |
+| A selected run records another hemisphere source but has no valid output | Stop; never substitute a same-named local source implicitly. |
+| Selected-run hemisphere enrichment changes staging files | Refresh the distribution plan before copying so restart verification remains byte-for-byte. |
 
 ### Segmentation Transformation
 

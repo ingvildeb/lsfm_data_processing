@@ -11,6 +11,7 @@ from pathlib import Path
 import shutil
 from typing import Any, Callable, Mapping
 
+from .hemisphere_backfill import HemisphereBackfillPlan
 from .models import FinalDecision, FinalDecisionKind, normalize_subject_id
 
 
@@ -69,6 +70,106 @@ class RegistrationDistributionPlan:
     @property
     def required_confirmation(self) -> str:
         return f"DISTRIBUTE REGISTRATIONS {self.batch_id}"
+
+
+@dataclass(frozen=True)
+class HemisphereRegistrationDistributionPlan:
+    """Distribution preceded by selected-run hemisphere enrichment."""
+
+    distribution: RegistrationDistributionPlan
+    subjects_root: Path
+    destination_roots: Mapping[str, Path]
+    decisions: Mapping[str, FinalDecision]
+    hemisphere_sources: Mapping[str, Path]
+    hemisphere_plan: HemisphereBackfillPlan
+
+    @property
+    def required_confirmation(self) -> str:
+        return self.distribution.required_confirmation
+
+
+def build_hemisphere_registration_distribution_plan(
+    *,
+    batch_id: str,
+    subjects_root: Path | str,
+    destination_roots: Mapping[str, Path | str],
+    decisions: Mapping[str, FinalDecision],
+    hemisphere_sources: Mapping[str, Path | str],
+) -> HemisphereRegistrationDistributionPlan:
+    """Plan selected-run hemisphere transforms and complete run distribution."""
+
+    from .hemisphere_backfill import build_hemisphere_backfill_plan
+
+    source_root = Path(subjects_root)
+    normalized_destinations = {
+        normalize_subject_id(subject_id): Path(path)
+        for subject_id, path in destination_roots.items()
+    }
+    normalized_sources = {
+        str(image_id): Path(path) for image_id, path in hemisphere_sources.items()
+    }
+    distribution = build_registration_distribution_plan(
+        batch_id=batch_id,
+        subjects_root=source_root,
+        destination_roots=normalized_destinations,
+        decisions=decisions,
+    )
+    selected_registration_dirs = tuple(
+        subject.source_subject_dir / subject.selected_run_path
+        for subject in distribution.subjects
+        if subject.selected_run_path is not None
+    )
+    hemisphere_plan = build_hemisphere_backfill_plan(
+        selected_registration_dirs,
+        normalized_sources,
+    )
+    return HemisphereRegistrationDistributionPlan(
+        distribution=distribution,
+        subjects_root=source_root,
+        destination_roots=normalized_destinations,
+        decisions=dict(decisions),
+        hemisphere_sources=normalized_sources,
+        hemisphere_plan=hemisphere_plan,
+    )
+
+
+def summarize_hemisphere_registration_distribution_plan(
+    plan: HemisphereRegistrationDistributionPlan,
+) -> str:
+    """Summarize the distribution and its selected-run postprocessing."""
+
+    lines = [
+        summarize_registration_distribution_plan(plan.distribution),
+        "Selected-run hemisphere enrichment:",
+    ]
+    if not plan.hemisphere_plan.items:
+        lines.append("  no selected registrations require processing")
+    for item in plan.hemisphere_plan.items:
+        lines.append(
+            f"  {item.registration_dir}: {item.action.value} - {item.reason}"
+        )
+    return "\n".join(lines)
+
+
+def apply_hemisphere_registration_distribution_plan(
+    plan: HemisphereRegistrationDistributionPlan,
+    *,
+    confirmation: str,
+) -> None:
+    """Enrich selected source runs, refresh the copy plan, then distribute."""
+
+    from .hemisphere_backfill import apply_hemisphere_backfill_plan
+
+    if confirmation != plan.required_confirmation:
+        raise ValueError(f"Required confirmation: {plan.required_confirmation!r}")
+    apply_hemisphere_backfill_plan(plan.hemisphere_plan)
+    refreshed = build_registration_distribution_plan(
+        batch_id=plan.distribution.batch_id,
+        subjects_root=plan.subjects_root,
+        destination_roots=plan.destination_roots,
+        decisions=plan.decisions,
+    )
+    apply_registration_distribution_plan(refreshed, confirmation=confirmation)
 
 
 SubjectFinalizer = Callable[[SubjectRegistrationDistribution], None]
@@ -633,14 +734,18 @@ __all__ = [
     "PARTIAL_COPY_SUFFIX",
     "RegistrationCopyOperation",
     "RegistrationDistributionPlan",
+    "HemisphereRegistrationDistributionPlan",
     "SELECTION_METADATA_FILENAME",
     "SubjectFinalizer",
     "SubjectRegistrationDistribution",
     "TRANSFERRED_SUFFIX",
     "apply_registration_distribution_plan",
+    "apply_hemisphere_registration_distribution_plan",
     "build_registration_distribution_plan",
+    "build_hemisphere_registration_distribution_plan",
     "copy_and_verify",
     "files_match",
     "plan_verified_copy",
     "summarize_registration_distribution_plan",
+    "summarize_hemisphere_registration_distribution_plan",
 ]
