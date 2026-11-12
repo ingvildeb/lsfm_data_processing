@@ -11,6 +11,23 @@ from .artifacts import (
     inspect_artifact_set,
 )
 from .grids import NiftiGrid, grids_match, validate_nifti_grid
+from .channel_validation import (
+    deduplication_parameters_for_work_item,
+    inspect_parquet_footer,
+    inspect_point_dataset,
+    inspect_point_dataset_footer,
+    inspect_point_dataset_metadata,
+    pointcloud_parameters_for_work_item,
+    validate_channel_objects,
+    validate_channel_pointcloud,
+    validate_deduplicated_object_artifact,
+    validate_loaded_point_dataset,
+)
+from .channel_execution import (
+    ChannelObjectExecutionResult,
+    PointCloudExecutionSettings,
+    execute_channel_object_plan_item,
+)
 from .lineage import (
     DIRECT_INPUT_SIGNATURES_KEY,
     FileSignature,
@@ -23,6 +40,7 @@ from .models import (
     ChannelDefinition,
     ColocalizationDefinition,
     DeduplicationSettings,
+    PointCloudExtractionSettings,
     QuantificationSettings,
     SourceKind,
     VoxelizationSettings,
@@ -30,6 +48,15 @@ from .models import (
 )
 from .paths import CanonicalLayout, canonical_subject_stem
 from .planning import ArtifactRequest, WorkflowPlan, build_workflow_plan
+from .work_items import (
+    ChannelObjectPlan,
+    ChannelObjectPlanItem,
+    ChannelObjectWorkItem,
+    SubjectWorkInput,
+    build_channel_object_plan,
+    resolve_channel_object_work_item,
+    summarize_channel_object_plan,
+)
 
 __all__ = [
     "ArtifactInspection",
@@ -38,6 +65,10 @@ __all__ = [
     "ArtifactState",
     "CanonicalLayout",
     "ChannelDefinition",
+    "ChannelObjectPlan",
+    "ChannelObjectPlanItem",
+    "ChannelObjectWorkItem",
+    "ChannelObjectExecutionResult",
     "ColocalizationDefinition",
     "DIRECT_INPUT_SIGNATURES_KEY",
     "DeduplicationSettings",
@@ -45,20 +76,37 @@ __all__ = [
     "FileSignature",
     "NiftiGrid",
     "PlannedAction",
+    "PointCloudExtractionSettings",
+    "PointCloudExecutionSettings",
     "PolicyDecision",
     "QuantificationSettings",
     "SourceKind",
+    "SubjectWorkInput",
     "VoxelizationSettings",
     "WorkflowConfiguration",
     "WorkflowPlan",
     "build_workflow_plan",
+    "build_channel_object_plan",
     "canonical_subject_stem",
     "decide_existing_output",
     "direct_input_signatures",
     "grids_match",
     "inspect_artifact_set",
+    "inspect_parquet_footer",
+    "inspect_point_dataset",
+    "inspect_point_dataset_footer",
+    "inspect_point_dataset_metadata",
+    "pointcloud_parameters_for_work_item",
+    "deduplication_parameters_for_work_item",
+    "resolve_channel_object_work_item",
+    "execute_channel_object_plan_item",
+    "summarize_channel_object_plan",
     "validate_lineage_parameters",
     "validate_nifti_grid",
+    "validate_channel_objects",
+    "validate_channel_pointcloud",
+    "validate_deduplicated_object_artifact",
+    "validate_loaded_point_dataset",
     "validate_spatial_sidecar_lineage",
     "with_lineage_parameters",
 ]

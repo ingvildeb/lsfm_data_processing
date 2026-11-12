@@ -24,6 +24,26 @@ class SourceKind(str, Enum):
 
 
 @dataclass(frozen=True)
+class PointCloudExtractionSettings:
+    """Scientific settings that define a mask-derived point cloud."""
+
+    space_name: str
+    orientation: str
+    indexing: str
+    mask_prefix: str
+
+    def __post_init__(self) -> None:
+        if not str(self.space_name).strip():
+            raise ValueError("space_name must not be empty")
+        if not str(self.orientation).strip():
+            raise ValueError("orientation must not be empty")
+        if self.indexing not in {"zero_based", "one_based"}:
+            raise ValueError("indexing must be zero_based or one_based")
+        if not str(self.mask_prefix):
+            raise ValueError("mask_prefix must not be empty")
+
+
+@dataclass(frozen=True)
 class DeduplicationSettings:
     max_plane_offset: int
     max_xy_distance_um: float
@@ -31,8 +51,8 @@ class DeduplicationSettings:
     write_edge_table: bool = False
 
     def __post_init__(self) -> None:
-        if self.max_plane_offset < 0:
-            raise ValueError("max_plane_offset must be nonnegative")
+        if self.max_plane_offset < 1:
+            raise ValueError("max_plane_offset must be positive")
         if self.max_xy_distance_um <= 0:
             raise ValueError("max_xy_distance_um must be positive")
         if self.max_n_planes is not None and self.max_n_planes < 1:

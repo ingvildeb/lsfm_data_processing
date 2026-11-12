@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-12
+
+### Added
+
+- Canonical workflow-01 work items and read-only planning for channel point
+  clouds and deduplicated objects.
+- Plan-safe SpatialSignal sidecar and Parquet-footer validation, deep apply-time
+  coordinate validation, and lineage-aware object validation.
+- Shared mask-centroid extraction and cross-plane deduplication execution with
+  mandatory post-write validation and immutable source point clouds.
+- A `cell-quantification` dependency extra pinned to `spatialsignal v0.2.0`.
+- Acceptance tests for Sytox source reuse, ALDH mask extraction, restart-safe
+  reuse, output policies, malformed outputs, and stale lineage.
+
+### Changed
+
+- Workflow-01 planning now uses the canonical point-cloud and object validators
+  by default.
+- Deduplication artifact validation now includes membership and optional edge
+  table schemas.
+
+## [0.4.1] - 2026-11-09
+
+### Added
+
+- Restart-safe selected-registration distribution that creates and validates a
+  transformed hemisphere map only for the selected run before backtransfer.
+
 ## [0.4.0] - 2026-11-03
 
 ### Added

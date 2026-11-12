@@ -190,6 +190,27 @@ Reuse validation is mandatory. Policies behave as follows:
 Planning reports classifications and proposed actions without writing. Applying
 executes only the planned actions and validates completed outputs.
 
+For channel-object workflow planning, projects provide selected subject roots
+and validate project-specific detector evidence. The shared layer resolves the
+canonical point-cloud and object artifact sets into `ChannelObjectWorkItem`
+instances, produces a read-only `ChannelObjectPlan`, and formats that plan for
+the numbered entry point. Plan summarization is a presentation helper, not a
+third run mode.
+
+Canonical workflow-01 reuse validation is shared. Planning reads SpatialSignal
+sidecars and Parquet schemas/footers, but does not scan every coordinate row.
+Apply mode performs deep SpatialSignal point validation after loading an input
+or newly written dataset. Deduplicated-object reuse additionally validates its
+processing stage, configured scientific parameters, and direct point-cloud
+lineage.
+
+Workflow-01 scientific execution is shared as well: mask-centroid extraction,
+point-cloud provenance, cross-plane deduplication, canonical SpatialSignal
+writers, and mandatory post-write validation. Projects map their operational
+worker/progress settings into the shared executor and retain cohort iteration,
+status presentation, and failure reporting. Existing source point clouds are
+read-only under every output policy.
+
 ## Lightweight lineage contract
 
 No workflow-level manifest, UUID graph, compatibility hash, or new sidecar schema

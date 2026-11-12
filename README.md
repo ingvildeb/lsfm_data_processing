@@ -6,9 +6,19 @@ Utilities and pipelines for LSFM preprocessing, chunk generation, atlas alignmen
 
 The shared contract for point-cloud extraction, deduplication, colocalization,
 raw hemisphere-aware quantification, and exact-grid count maps is defined in
-`docs/cell_quantification_workflow_contract.md`. The reusable layer will live in
+`docs/cell_quantification_workflow_contract.md`. The reusable layer lives in
 `lsfm_data_processing.cell_quantification.project_workflow`; its first pilot is
-Glia Mapping.
+Glia Mapping. Project adapters supply selected subjects and validated detector
+inputs. The shared workflow resolves canonical work-item paths, applies output
+policies, classifies pending and complete subjects, formats read-only plans, and
+executes point-cloud extraction and deduplication with post-write validation.
+
+For reproducible cell-quantification use, install the tagged package with its
+SpatialSignal-backed extra:
+
+```powershell
+python -m pip install "lsfm-data-processing[cell-quantification] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.5.0"
+```
 
 ## Registration setup
 
@@ -24,7 +34,7 @@ For reproducible registration use, install the tagged package with its registrat
 
 ```powershell
 python -m pip install --upgrade pip
-python -m pip install "lsfm-data-processing[registration] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.3.0"
+python -m pip install "lsfm-data-processing[registration] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.5.0"
 ```
 
 For development from a local checkout, use an editable install instead:
@@ -32,7 +42,7 @@ For development from a local checkout, use an editable install instead:
 ```powershell
 git clone https://github.com/ingvildeb/lsfm_data_processing.git
 cd lsfm_data_processing
-python -m pip install -e ".[registration]"
+python -m pip install -e ".[registration,cell-quantification]"
 ```
 
 Verify the exact installed registration runtime:
