@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-12
+
+### Added
+
+- Cohort-level workflow-01 application with complete-item exclusion,
+  independent subject execution, structured outcomes, and aggregated failures.
+
+### Changed
+
+- Project adapters can now delegate workflow-01 cohort iteration, progress
+  reporting, and failure aggregation to the shared layer.
+
 ## [0.5.0] - 2026-11-12
 
 ### Added

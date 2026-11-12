@@ -24,8 +24,12 @@ from .channel_validation import (
     validate_loaded_point_dataset,
 )
 from .channel_execution import (
+    ChannelObjectExecutionFailure,
     ChannelObjectExecutionResult,
+    ChannelObjectPlanExecutionError,
+    ChannelObjectPlanExecutionResult,
     PointCloudExecutionSettings,
+    apply_channel_object_plan,
     execute_channel_object_plan_item,
 )
 from .lineage import (
@@ -68,7 +72,10 @@ __all__ = [
     "ChannelObjectPlan",
     "ChannelObjectPlanItem",
     "ChannelObjectWorkItem",
+    "ChannelObjectExecutionFailure",
     "ChannelObjectExecutionResult",
+    "ChannelObjectPlanExecutionError",
+    "ChannelObjectPlanExecutionResult",
     "ColocalizationDefinition",
     "DIRECT_INPUT_SIGNATURES_KEY",
     "DeduplicationSettings",
@@ -87,6 +94,7 @@ __all__ = [
     "WorkflowPlan",
     "build_workflow_plan",
     "build_channel_object_plan",
+    "apply_channel_object_plan",
     "canonical_subject_stem",
     "decide_existing_output",
     "direct_input_signatures",

@@ -20,7 +20,11 @@ from .channel_validation import (
 )
 from .lineage import with_lineage_parameters
 from .models import SourceKind
-from .work_items import ChannelObjectPlanItem, ChannelObjectWorkItem
+from .work_items import (
+    ChannelObjectPlan,
+    ChannelObjectPlanItem,
+    ChannelObjectWorkItem,
+)
 
 
 StatusReporter = Callable[[str], None]
@@ -51,6 +55,40 @@ class ChannelObjectExecutionResult:
     deduplication_action: PlannedAction | None
     n_detections: int
     n_objects: int | None
+
+
+@dataclass(frozen=True)
+class ChannelObjectExecutionFailure:
+    """One subject-level failure collected while applying a cohort plan."""
+
+    subject_id: str
+    error_type: str
+    message: str
+
+    def format(self) -> str:
+        return f"{self.subject_id}: {self.error_type}: {self.message}"
+
+
+@dataclass(frozen=True)
+class ChannelObjectPlanExecutionResult:
+    """Cohort-level outcome after all independent pending items were attempted."""
+
+    results: tuple[ChannelObjectExecutionResult, ...]
+    failures: tuple[ChannelObjectExecutionFailure, ...]
+    already_complete: tuple[str, ...]
+
+    @property
+    def successful_count(self) -> int:
+        return len(self.results)
+
+
+class ChannelObjectPlanExecutionError(RuntimeError):
+    """Aggregated workflow-01 failure with the completed cohort outcome."""
+
+    def __init__(self, result: ChannelObjectPlanExecutionResult) -> None:
+        self.result = result
+        details = "\n".join(failure.format() for failure in result.failures)
+        super().__init__(f"Point-cloud failures:\n{details}")
 
 
 def _runtime() -> tuple[type[Any], type[Any], Any, Any, Any]:
@@ -300,3 +338,71 @@ def execute_channel_object_plan_item(
         n_detections=int(len(pointcloud.points)),
         n_objects=None if objects is None else int(len(objects.points)),
     )
+
+
+def apply_channel_object_plan(
+    plan: ChannelObjectPlan,
+    *,
+    extraction_settings: PointCloudExecutionSettings | None = None,
+    reporter: StatusReporter | None = None,
+) -> ChannelObjectPlanExecutionResult:
+    """Apply every pending workflow-01 item and aggregate subject failures.
+
+    A plan containing a blocking policy decision is rejected before any writes.
+    Runtime failure of one otherwise independent subject does not prevent later
+    pending subjects from being attempted.
+    """
+
+    if not plan.can_apply:
+        details = "\n".join(plan.blocking_reasons)
+        suffix = f"\n{details}" if details else ""
+        raise RuntimeError(
+            "Channel-object plan contains blocking items." + suffix
+        )
+
+    pending = plan.pending
+    results: list[ChannelObjectExecutionResult] = []
+    failures: list[ChannelObjectExecutionFailure] = []
+    for index, planned in enumerate(pending, start=1):
+        item = planned.work_item
+        _report(
+            reporter,
+            f"\n[{index}/{len(pending)}] {item.subject_id} / {item.channel_id}",
+        )
+        try:
+            result = execute_channel_object_plan_item(
+                planned,
+                extraction_settings=extraction_settings,
+                reporter=reporter,
+            )
+            results.append(result)
+            if planned.deduplication is None and not item.deduplication_enabled:
+                _report(
+                    reporter,
+                    f"    Deduplication disabled for {item.signal_id}",
+                )
+        except Exception as exc:
+            failure = ChannelObjectExecutionFailure(
+                subject_id=item.subject_id,
+                error_type=type(exc).__name__,
+                message=str(exc),
+            )
+            failures.append(failure)
+            _report(reporter, f"    FAILED: {failure.format()}")
+
+    result = ChannelObjectPlanExecutionResult(
+        results=tuple(results),
+        failures=tuple(failures),
+        already_complete=tuple(
+            item.work_item.subject_id for item in plan.complete
+        ),
+    )
+    _report(
+        reporter,
+        f"\nPoint-cloud run complete: "
+        f"{result.successful_count}/{len(pending)} pending subject(s) successful; "
+        f"{len(result.already_complete)} already complete.",
+    )
+    if failures:
+        raise ChannelObjectPlanExecutionError(result)
+    return result

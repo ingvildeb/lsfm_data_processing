@@ -11,10 +11,13 @@ from lsfm_data_processing.cell_quantification.project_workflow import (
     ArtifactState,
     ChannelDefinition,
     DeduplicationSettings,
+    ChannelObjectExecutionResult,
+    ChannelObjectPlanExecutionError,
     PointCloudExecutionSettings,
     PointCloudExtractionSettings,
     SourceKind,
     SubjectWorkInput,
+    apply_channel_object_plan,
     build_channel_object_plan,
     execute_channel_object_plan_item,
     resolve_channel_object_work_item,
@@ -23,7 +26,11 @@ from lsfm_data_processing.cell_quantification.project_workflow import (
 )
 
 
-def _item(tmp_path: Path, source_kind: SourceKind):
+def _item(
+    tmp_path: Path,
+    source_kind: SourceKind,
+    subject_id: str = "IEB1000",
+):
     channel = ChannelDefinition(
         population_id="ch0_aldh",
         source_kind=source_kind,
@@ -36,7 +43,7 @@ def _item(tmp_path: Path, source_kind: SourceKind):
         ),
     )
     subject = SubjectWorkInput(
-        "IEB1000",
+        subject_id,
         "P4",
         tmp_path,
         tmp_path / "_spatialsignal",
@@ -165,3 +172,75 @@ def test_post_write_validation_rejects_malformed_membership(
             plan.pending[0],
             extraction_settings=PointCloudExecutionSettings(show_progress=False),
         )
+
+
+def test_apply_plan_excludes_already_complete_items(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    item, _ = _execute_initial_workflow(tmp_path)
+    plan = build_channel_object_plan(work_items=(item,), policy="skip")
+
+    def unexpected_execution(*args, **kwargs):
+        raise AssertionError("complete items must not enter the execution queue")
+
+    monkeypatch.setattr(
+        "lsfm_data_processing.cell_quantification.project_workflow."
+        "channel_execution.execute_channel_object_plan_item",
+        unexpected_execution,
+    )
+    result = apply_channel_object_plan(plan)
+
+    assert result.results == ()
+    assert result.failures == ()
+    assert result.already_complete == ("IEB1000",)
+
+
+def test_apply_plan_attempts_independent_subjects_and_raises_aggregate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    _write_masks(first_root)
+    _write_masks(second_root)
+    first = _item(first_root, SourceKind.INSTANCE_MASKS, "IEB1000")
+    second = _item(second_root, SourceKind.INSTANCE_MASKS, "IEB1001")
+    plan = build_channel_object_plan(
+        work_items=(first, second),
+        policy="skip",
+    )
+    attempted: list[str] = []
+
+    def controlled_execution(planned, **kwargs):
+        subject_id = planned.work_item.subject_id
+        attempted.append(subject_id)
+        if subject_id == "IEB1000":
+            raise ValueError("controlled subject failure")
+        return ChannelObjectExecutionResult(
+            subject_id=subject_id,
+            pointcloud_action=planned.pointcloud.action,
+            deduplication_action=planned.deduplication.action,
+            n_detections=2,
+            n_objects=1,
+        )
+
+    monkeypatch.setattr(
+        "lsfm_data_processing.cell_quantification.project_workflow."
+        "channel_execution.execute_channel_object_plan_item",
+        controlled_execution,
+    )
+    messages: list[str] = []
+    with pytest.raises(ChannelObjectPlanExecutionError) as caught:
+        apply_channel_object_plan(plan, reporter=messages.append)
+
+    assert attempted == ["IEB1000", "IEB1001"]
+    assert tuple(item.subject_id for item in caught.value.result.results) == (
+        "IEB1001",
+    )
+    assert len(caught.value.result.failures) == 1
+    assert caught.value.result.failures[0].subject_id == "IEB1000"
+    assert "IEB1000: ValueError: controlled subject failure" in str(caught.value)
+    assert messages[-1].endswith(
+        "1/2 pending subject(s) successful; 0 already complete."
+    )

@@ -207,8 +207,10 @@ lineage.
 Workflow-01 scientific execution is shared as well: mask-centroid extraction,
 point-cloud provenance, cross-plane deduplication, canonical SpatialSignal
 writers, and mandatory post-write validation. Projects map their operational
-worker/progress settings into the shared executor and retain cohort iteration,
-status presentation, and failure reporting. Existing source point clouds are
+worker/progress settings into the shared executor. The shared cohort operation
+excludes validated complete items, attempts every independent pending item,
+returns structured successes and failures, and raises one aggregate error after
+all pending items have been attempted. Existing source point clouds are
 read-only under every output policy.
 
 ## Lightweight lineage contract
