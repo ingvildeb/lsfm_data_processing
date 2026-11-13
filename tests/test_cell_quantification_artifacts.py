@@ -73,13 +73,27 @@ def test_absent_sets_are_written_except_overwrite_uses_rebuild(tmp_path: Path) -
     assert decide_existing_output(inspection, "overwrite").action is PlannedAction.REBUILD
 
 
-def test_legacy_output_cannot_survive_an_upstream_rebuild(tmp_path: Path) -> None:
+def test_no_lineage_output_cannot_survive_an_upstream_rebuild(
+    tmp_path: Path,
+) -> None:
     inspection = ArtifactInspection(
         ArtifactSet("quantification", (tmp_path / "summary.csv",)),
-        ArtifactState.LEGACY,
+        ArtifactState.NO_LINEAGE,
     )
     assert decide_existing_output(inspection, "skip").action is PlannedAction.REUSE
     decision = decide_existing_output(inspection, "skip", upstream_rebuilt=True)
     assert decision.inspection.state is ArtifactState.STALE
     assert decision.action is PlannedAction.STOP
+
+
+def test_legacy_state_value_remains_reusable_for_api_compatibility(
+    tmp_path: Path,
+) -> None:
+    inspection = ArtifactInspection(
+        ArtifactSet("objects", (tmp_path / "objects.parquet",)),
+        ArtifactState("legacy"),
+    )
+
+    assert inspection.state is ArtifactState.LEGACY
+    assert inspection.reusable
 

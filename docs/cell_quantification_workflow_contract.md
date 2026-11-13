@@ -19,8 +19,8 @@ raw quantification.
   objects and membership, matching, regional quantification, voxelization,
   spatial sidecars, and their validation.
 - `lsfm_data_processing` owns reusable orchestration: canonical paths, workflow
-  planning, artifact-set validation, reuse and output policies, lightweight
-  lineage checks, and shared project adapters.
+  planning, artifact-set validation, reuse and output policies, optional-lineage
+  compatibility, and shared project adapters.
 - Project repositories own subject discovery, project roots, channel/population
   definitions, scientific parameter values, numbered entry-point scripts, and
   genuinely project-specific extensions.
@@ -100,12 +100,13 @@ they do not become permanent fallback paths.
 
 ## Numbered project workflows
 
-Projects retain fixed, user-facing numbered scripts:
+Projects retain the applicable fixed, user-facing numbered scripts:
 
 1. `01_build_channel_objects.py` builds channel artifacts. ALDH runs masks to
    point cloud to deduplicated objects; Sytox runs an existing point cloud to
    deduplicated objects.
-2. `02_run_colocalization.py` writes detection matches, object relationships,
+2. `02_run_colocalization.py` is present only in projects with configured
+   colocalized populations. It writes detection matches, object relationships,
    materialized colocalized populations, and configured method QC.
 3. `03_quantify_populations.py` writes hemisphere-aware raw regional
    quantification, quantification QC, subject maps, and reference maps. Its
@@ -174,9 +175,9 @@ canonical outputs.
 ## Artifact states and output policies
 
 A stage artifact is a complete expected file set, not one representative file.
-Validation classifies it as `absent`, `partial`, `valid`, `stale`, or `invalid`.
-Historical artifacts without new lineage fields are reported as legacy rather
-than automatically called stale.
+Validation classifies it as `absent`, `partial`, `valid`, `no_lineage`, `stale`,
+or `invalid`. Artifacts without formal input lineage are reported as
+`no_lineage` rather than being treated as old or automatically called stale.
 
 Reuse validation is mandatory. Policies behave as follows:
 
@@ -201,8 +202,9 @@ Canonical workflow-01 reuse validation is shared. Planning reads SpatialSignal
 sidecars and Parquet schemas/footers, but does not scan every coordinate row.
 Apply mode performs deep SpatialSignal point validation after loading an input
 or newly written dataset. Deduplicated-object reuse additionally validates its
-processing stage, configured scientific parameters, and direct point-cloud
-lineage.
+processing stage and configured scientific parameters. Formal direct
+point-cloud lineage remains optional; workflow 01 does not invent input
+identities when the upstream artifacts do not already provide stable IDs.
 
 Workflow-01 scientific execution is shared as well: mask-centroid extraction,
 point-cloud provenance, cross-plane deduplication, canonical SpatialSignal
@@ -213,29 +215,35 @@ returns structured successes and failures, and raises one aggregate error after
 all pending items have been attempted. Existing source point clouds are
 read-only under every output policy.
 
-## Lightweight lineage contract
+## Optional lineage and scientific-parameter contract
 
 No workflow-level manifest, UUID graph, compatibility hash, or new sidecar schema
 is introduced. Existing SpatialSignal sidecars remain authoritative.
 
-New artifacts record in their existing `processing.parameters` field:
+New artifacts record scientific parameters that affect their result in the
+existing `processing.parameters` field. They do not record custom file names,
+sizes, or modification times as lineage: those properties are not stable across
+the filesystems used by the projects.
 
-- scientific parameters that affect the result; and
-- each direct input file's name, byte size, and nanosecond modification time.
+Formal `artifact_id` and `processing.inputs` lineage is optional. Until stable
+input IDs are available, an otherwise valid artifact is classified as
+`no_lineage` and remains reusable. Validation still checks the complete file
+set, SpatialSignal schema and representation, coordinate spaces and grids,
+identifiers, membership and relationship integrity, and every recorded
+scientific parameter relevant to the requested operation.
+The SpatialSignal v0.2 model can read and round-trip formal IDs, but workflow
+01 does not yet generate them or migrate existing sidecars. That adoption is a
+separate future change and is not a prerequisite for routine processing.
 
-Before reuse, the workflow recomputes direct-input signatures and compares
-relevant scientific parameters. This is a practical staleness check, not a
-cryptographic provenance system.
+The early Glia pilot wrote a custom `direct_input_signatures` parameter. It is
+accepted as historical metadata but is not compared with current filesystem
+timestamps and is not written to new artifacts. Those sidecars are not rewritten
+merely to remove the field.
 
-Legacy artifacts without signatures may pass stage-specific legacy validation.
-That validation checks the complete file set, SpatialSignal schema and
-representation, coordinate spaces and grids, identifiers, membership and
-relationship integrity, and recorded parameters where available. Legacy
-sidecars are not rewritten merely to adopt the workflow.
-
-One safety rule is strict: an unsigned legacy downstream artifact cannot be
-reused after its upstream input has been rebuilt. It must be regenerated so the
-new dependency is recorded.
+One safety rule remains strict: a no-lineage downstream artifact cannot be
+reused when the current plan rebuilds its upstream input. It must be regenerated
+in the same workflow plan. A future formal lineage mismatch will likewise be
+classified as stale, but formal lineage will not be required for reuse.
 
 The read-only project audit uses these same validators. A separate audit-scope
 control is unnecessary because reuse validation already occurs at every stage.
@@ -260,7 +268,7 @@ informs this contract, but old layouts do not become aliases in the shared runne
 The first implementation excludes biological screening, tracker mutation,
 cross-project tracker standardization, project-specific participation metrics,
 automatic cleanup of Chandelier Cell or Triple Transgenic, and retrofitting
-signatures into historical sidecars.
+formal lineage into historical sidecars.
 
 ## Implementation sequence
 
@@ -268,7 +276,7 @@ signatures into historical sidecars.
    lineage tests alongside the shared core, before replacing a project's
    existing entry points with shared orchestration.
 2. **Shared core:** add typed configuration, path builders, artifact validators,
-   planning, output-policy handling, and lightweight signature comparison under
+   planning, output-policy handling, and optional-lineage compatibility under
    `lsfm_data_processing.cell_quantification.project_workflow`.
 3. **Hemisphere infrastructure:** generate developmental-atlas hemisphere
    sources, add registration backfill, validate exact subject grids, and backfill
@@ -278,8 +286,8 @@ signatures into historical sidecars.
    quantification and exact-grid subject/reference maps.
 5. **Glia transition:** inventory and archive pre-hemisphere quantification,
    exercise plan/apply and all output policies, then run the new workflow.
-6. **Audit:** add the read-only audit and legacy validators needed for safe reuse
-   of eligible historical upstream artifacts.
+6. **Audit:** add the read-only audit and compatibility validators needed for
+   safe reuse of eligible historical upstream artifacts.
 7. **Later adoption:** clean up and migrate Chandelier Cell and Triple
    Transgenic explicitly. Align SING after the Glia pilot demonstrates that the
    shared contract covers its established behavior.
@@ -291,10 +299,12 @@ The Glia pilot is ready for routine use when:
 - plan mode is read-only and accurately reports actions;
 - valid complete artifact sets are reused and partial sets are never mistaken
   for complete work;
-- changing a direct input or scientific parameter prevents stale reuse;
-- legacy reuse is conservative and impossible downstream of a rebuilt input;
+- changing a recorded scientific parameter prevents stale reuse;
+- no-lineage reuse is impossible downstream of an upstream rebuild in the same
+  plan;
 - Sytox begins at its existing point cloud and ALDH at instance masks;
-- colocalized populations preserve matching and relationship evidence;
+- when a project configures colocalized populations, they preserve matching and
+  relationship evidence;
 - every regional result has the required hemisphere interpretation;
 - subject and reference maps exactly match their declared annotation grids;
 - future biological screening cannot overwrite raw quantification; and

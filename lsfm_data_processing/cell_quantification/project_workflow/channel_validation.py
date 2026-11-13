@@ -166,7 +166,7 @@ def validate_loaded_point_dataset(
 def pointcloud_parameters_for_work_item(
     item: ChannelObjectWorkItem,
 ) -> dict[str, Any]:
-    """Return lineage-bearing scientific parameters for point-cloud extraction."""
+    """Return scientific parameters for point-cloud extraction."""
 
     settings = item.pointcloud_settings
     if settings is None:
@@ -185,7 +185,7 @@ def pointcloud_parameters_for_work_item(
 def deduplication_parameters_for_work_item(
     item: ChannelObjectWorkItem,
 ) -> dict[str, Any]:
-    """Return lineage-bearing scientific parameters for deduplication."""
+    """Return scientific parameters for deduplication."""
 
     settings = item.channel.deduplication
     return {

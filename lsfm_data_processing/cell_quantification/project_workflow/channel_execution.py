@@ -127,8 +127,11 @@ def _require_reusable(inspection: ArtifactInspection, stage: str) -> None:
         )
 
 
-def _require_newly_valid(inspection: ArtifactInspection, stage: str) -> None:
-    if inspection.state is not ArtifactState.VALID:
+def _require_newly_reusable(inspection: ArtifactInspection, stage: str) -> None:
+    if inspection.state not in {
+        ArtifactState.VALID,
+        ArtifactState.NO_LINEAGE,
+    }:
         details = "; ".join(inspection.reasons)
         suffix = f": {details}" if details else ""
         raise RuntimeError(
@@ -219,7 +222,7 @@ def _write_pointcloud(
         item.pointcloud_outputs,
         validator=lambda artifact: validate_channel_pointcloud(item, artifact),
     )
-    _require_newly_valid(inspection, "point cloud")
+    _require_newly_reusable(inspection, "point cloud")
     return dataset
 
 
@@ -273,7 +276,7 @@ def _write_objects(item: ChannelObjectWorkItem, pointcloud: Any) -> Any:
         item.deduplication_outputs,
         validator=lambda artifact: validate_channel_objects(item, artifact),
     )
-    _require_newly_valid(inspection, "deduplicated objects")
+    _require_newly_reusable(inspection, "deduplicated objects")
     return objects
 
 

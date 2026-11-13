@@ -1,6 +1,17 @@
 # Changelog
 
-## [Unreleased]
+## [0.5.2] - 2026-11-13
+
+### Changed
+
+- Workflow-01 outputs no longer write or validate custom file signatures based
+  on modification times. Scientific parameters remain validated, artifacts
+  without formal SpatialSignal input references are reported as `no_lineage`,
+  and historical `direct_input_signatures` metadata remains readable but is
+  ignored for staleness decisions.
+- The cell-quantification extra now pins SpatialSignal v0.2.1, which supports
+  optional `artifact_id` and `processing.inputs` metadata without requiring
+  workflow-01 outputs or existing artifacts to adopt formal lineage.
 
 ## [0.5.1] - 2026-11-12
 

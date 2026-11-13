@@ -115,10 +115,10 @@ def test_executes_mask_pointcloud_and_deduplication_with_post_validation(
     assert result.n_objects == 1
     assert validate_channel_pointcloud(
         item, item.pointcloud_outputs
-    ).state is ArtifactState.VALID
+    ).state is ArtifactState.NO_LINEAGE
     assert validate_channel_objects(
         item, item.deduplication_outputs
-    ).state is ArtifactState.VALID
+    ).state is ArtifactState.NO_LINEAGE
 
 
 def test_overwrite_preserves_existing_source_pointcloud(tmp_path: Path) -> None:

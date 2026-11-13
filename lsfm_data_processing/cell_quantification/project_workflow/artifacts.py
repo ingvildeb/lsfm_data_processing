@@ -12,6 +12,9 @@ class ArtifactState(str, Enum):
     ABSENT = "absent"
     PARTIAL = "partial"
     VALID = "valid"
+    NO_LINEAGE = "no_lineage"
+    # Deprecated compatibility state for callers that explicitly constructed
+    # ArtifactState("legacy") before the terminology was corrected.
     LEGACY = "legacy"
     STALE = "stale"
     INVALID = "invalid"
@@ -57,7 +60,11 @@ class ArtifactInspection:
 
     @property
     def reusable(self) -> bool:
-        return self.state in {ArtifactState.VALID, ArtifactState.LEGACY}
+        return self.state in {
+            ArtifactState.VALID,
+            ArtifactState.NO_LINEAGE,
+            ArtifactState.LEGACY,
+        }
 
 
 @dataclass(frozen=True)
@@ -112,13 +119,16 @@ def decide_existing_output(
 
     policy = ExistingOutputPolicy(policy)
     state = inspection.state
-    if state is ArtifactState.LEGACY and upstream_rebuilt:
+    if (
+        state in {ArtifactState.NO_LINEAGE, ArtifactState.LEGACY}
+        and upstream_rebuilt
+    ):
         state = ArtifactState.STALE
         inspection = ArtifactInspection(
             inspection.artifact_set,
             state,
             inspection.reasons
-            + ("unsigned legacy output has a rebuilt upstream input",),
+            + ("no-lineage output has a rebuilt upstream input",),
         )
 
     if state is ArtifactState.ABSENT:
@@ -129,7 +139,11 @@ def decide_existing_output(
         )
         return PolicyDecision(inspection, policy, action, "artifact set is absent")
 
-    if state in {ArtifactState.VALID, ArtifactState.LEGACY}:
+    if state in {
+        ArtifactState.VALID,
+        ArtifactState.NO_LINEAGE,
+        ArtifactState.LEGACY,
+    }:
         if policy is ExistingOutputPolicy.ERROR:
             return PolicyDecision(
                 inspection, policy, PlannedAction.STOP,

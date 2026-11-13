@@ -19,14 +19,14 @@ def _inspection(state: ArtifactState):
     return validate
 
 
-def test_plan_is_read_only_and_propagates_upstream_rebuild_to_legacy(
+def test_plan_is_read_only_and_propagates_upstream_rebuild_to_no_lineage(
     tmp_path: Path,
 ) -> None:
     pointcloud = ArtifactSet("pointcloud", (tmp_path / "pointcloud.parquet",))
     quantification = ArtifactSet(
         "quantification", (tmp_path / "region_summary.csv",)
     )
-    quantification.paths[0].write_text("legacy", encoding="utf-8")
+    quantification.paths[0].write_text("no lineage", encoding="utf-8")
 
     plan = build_workflow_plan(
         (
@@ -34,7 +34,7 @@ def test_plan_is_read_only_and_propagates_upstream_rebuild_to_legacy(
             ArtifactRequest(
                 "quantification",
                 quantification,
-                _inspection(ArtifactState.LEGACY),
+                _inspection(ArtifactState.NO_LINEAGE),
                 depends_on=("pointcloud",),
             ),
         ),

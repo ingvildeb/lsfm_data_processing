@@ -17,7 +17,7 @@ For reproducible cell-quantification use, install the tagged package with its
 SpatialSignal-backed extra:
 
 ```powershell
-python -m pip install "lsfm-data-processing[cell-quantification] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.5.1"
+python -m pip install "lsfm-data-processing[cell-quantification] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.5.2"
 ```
 
 ## Registration setup
@@ -34,7 +34,7 @@ For reproducible registration use, install the tagged package with its registrat
 
 ```powershell
 python -m pip install --upgrade pip
-python -m pip install "lsfm-data-processing[registration] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.5.1"
+python -m pip install "lsfm-data-processing[registration] @ git+https://github.com/ingvildeb/lsfm_data_processing.git@v0.5.2"
 ```
 
 For development from a local checkout, use an editable install instead:

@@ -102,7 +102,7 @@ def test_complete_subject_is_excluded_from_pending_queue(tmp_path: Path) -> None
         unavailable=("IEB0002: source unavailable",),
         policy="skip",
         pointcloud_validator=_state(ArtifactState.VALID),
-        deduplication_validator=_state(ArtifactState.LEGACY),
+        deduplication_validator=_state(ArtifactState.NO_LINEAGE),
     )
 
     assert plan.can_apply
@@ -113,17 +113,19 @@ def test_complete_subject_is_excluded_from_pending_queue(tmp_path: Path) -> None
     assert "excluded from run queue" in summary
 
 
-def test_generated_pointcloud_rebuild_invalidates_legacy_objects(tmp_path: Path) -> None:
+def test_generated_pointcloud_rebuild_invalidates_no_lineage_objects(
+    tmp_path: Path,
+) -> None:
     item = _item(tmp_path, SourceKind.INSTANCE_MASKS)
     for path in item.deduplication_outputs.paths:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("legacy", encoding="utf-8")
+        path.write_text("no lineage", encoding="utf-8")
 
     plan = build_channel_object_plan(
         work_items=(item,),
         policy="repair",
         pointcloud_validator=_state(ArtifactState.VALID),
-        deduplication_validator=_state(ArtifactState.LEGACY),
+        deduplication_validator=_state(ArtifactState.NO_LINEAGE),
     )
 
     planned = plan.items[0]

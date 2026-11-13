@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -149,10 +150,10 @@ def test_generated_pointcloud_and_objects_validate_without_project_callbacks(
 
     assert validate_channel_pointcloud(
         item, item.pointcloud_outputs
-    ).state is ArtifactState.VALID
+    ).state is ArtifactState.NO_LINEAGE
     assert validate_channel_objects(
         item, item.deduplication_outputs
-    ).state is ArtifactState.VALID
+    ).state is ArtifactState.NO_LINEAGE
 
     plan = build_channel_object_plan(work_items=(item,), policy="skip")
     assert len(plan.complete) == 1
@@ -170,15 +171,18 @@ def test_pointcloud_footer_missing_detection_columns_is_invalid(
     assert "detection_id" in inspection.reasons[0]
 
 
-def test_changed_pointcloud_marks_objects_stale(tmp_path: Path) -> None:
+def test_pointcloud_modification_time_drift_does_not_mark_objects_stale(
+    tmp_path: Path,
+) -> None:
     item = _work_item(tmp_path, SourceKind.EXISTING_POINTCLOUD)
     _write_pointcloud(item)
     _write_objects(item)
-    item.pointcloud_outputs.paths[1].write_text("{}", encoding="utf-8")
+    for path in item.pointcloud_outputs.paths:
+        stat = path.stat()
+        os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000_000))
 
     inspection = validate_channel_objects(item, item.deduplication_outputs)
-    assert inspection.state is ArtifactState.STALE
-    assert "direct-input signatures differ" in inspection.reasons[0]
+    assert inspection.state is ArtifactState.NO_LINEAGE
 
 
 def test_deep_validation_rejects_nonfinite_coordinates(tmp_path: Path) -> None:

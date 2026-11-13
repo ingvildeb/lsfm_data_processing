@@ -34,8 +34,6 @@ from .channel_execution import (
 )
 from .lineage import (
     DIRECT_INPUT_SIGNATURES_KEY,
-    FileSignature,
-    direct_input_signatures,
     validate_lineage_parameters,
     validate_spatial_sidecar_lineage,
     with_lineage_parameters,
@@ -80,7 +78,6 @@ __all__ = [
     "DIRECT_INPUT_SIGNATURES_KEY",
     "DeduplicationSettings",
     "ExistingOutputPolicy",
-    "FileSignature",
     "NiftiGrid",
     "PlannedAction",
     "PointCloudExtractionSettings",
@@ -97,7 +94,6 @@ __all__ = [
     "apply_channel_object_plan",
     "canonical_subject_stem",
     "decide_existing_output",
-    "direct_input_signatures",
     "grids_match",
     "inspect_artifact_set",
     "inspect_parquet_footer",
